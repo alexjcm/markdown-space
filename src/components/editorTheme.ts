@@ -103,14 +103,22 @@ export function createEditorLayout(fontSize: number): Extension {
     },
     '.cm-content': {
       fontFamily: "Menlo, Monaco, Consolas, 'Courier New', monospace",
-      padding: '16px',
-      paddingLeft: '8px',
+      padding: '8px',
+      paddingLeft: '4px',
+      // Matches the tightened left padding (see the gutter rule below) —
+      // reclaims horizontal space on narrow mobile viewports on both sides.
+      paddingRight: '1px',
       // No bottom bar in Editor mode: the content itself reserves space for
       // iOS's home indicator, as part of the scrollable area.
       paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
     },
     '&.cm-focused': {
       outline: 'none',
+    },
+    // Default is 5px, pushing line numbers away from the screen's left edge —
+    // tightened to reclaim horizontal space on narrow mobile viewports.
+    '.cm-lineNumbers .cm-gutterElement': {
+      paddingLeft: '2px',
     },
   })
 }

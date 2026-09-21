@@ -183,8 +183,8 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
   return (
     <div className="flex h-svh flex-col">
       <header
-        className="relative flex items-center gap-3 border-b border-border px-4 pb-1"
-        style={{ paddingTop: 'max(0.25rem, env(safe-area-inset-top))' }}
+        className="relative flex items-center gap-3 border-b border-border px-4"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <button
           type="button"

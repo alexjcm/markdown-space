@@ -49,9 +49,11 @@ La V1 será de uso personal y priorizará:
 - Evitar nombres duplicados.
 - Descargar el documento como `.md`.
 - Eliminar documentos con confirmación.
-- Tema exclusivamente oscuro inspirado en VS Code.
+- Búsqueda de documentos por nombre y contenido.
+- Interfaz general exclusivamente oscura, inspirada en VS Code; tema del editor seleccionable entre 3 opciones (Dark Modern, Monokai, Dracula) con resaltado real por lenguaje en bloques de código reconocidos.
+- Tamaño de fuente del editor ajustable.
 - Persistencia local en el navegador.
-- Instalabilidad como PWA mínima (manifest + iconos), para que el usuario pueda instalar la app en su dispositivo si lo desea — ver Fase 9. Sin service worker ni caché offline.
+- Instalabilidad como PWA mínima (manifest + iconos), para que el usuario pueda instalar la app en su dispositivo si lo desea. Sin service worker ni caché offline.
 
 ### Fuera de la V1
 
@@ -63,7 +65,6 @@ La V1 será de uso personal y priorizará:
 - PWA completa con service worker / funcionamiento offline (solo se incluye la instalabilidad mínima, ver sección "Incluido").
 - Imágenes en Markdown.
 - Barra de formato.
-- Búsqueda de documentos.
 - Integraciones externas.
 - Historial de versiones.
 - GitHub Flavored Markdown, excepto tablas — ver sección 3, "Markdown".
@@ -83,14 +84,14 @@ La V1 será de uso personal y priorizará:
 - React
 - TypeScript
 - Vite
-- Tailwind CSS 4 (vía `@tailwindcss/vite`, el plugin oficial — versión más nueva disponible; confirmado viable con Vite 8 + React 19 en el workspace `dmc`).
+- Tailwind CSS 4 (vía `@tailwindcss/vite`, el plugin oficial).
 - Lucide React
 
 Sin router: navegación con estado local de React — ver justificación en sección 8.
 
 ### PWA
 
-- `vite-plugin-pwa` — genera el manifest (`manifest.webmanifest`) e inyecta el `<link>` automáticamente, en vez de escribirlo a mano (mismo enfoque usado en el workspace `dmc`). Configurado sin service worker activo (`injectRegister: null`), solo para habilitar instalabilidad — ver Fase 9.
+- `vite-plugin-pwa` — genera el manifest (`manifest.webmanifest`) e inyecta el `<link>` automáticamente, en vez de escribirlo a mano. Configurado sin service worker activo (`injectRegister: null`), solo para habilitar instalabilidad.
 
 ### Editor
 
@@ -135,7 +136,7 @@ Decisión revisada tras analizar una muestra real de 43 documentos del usuario (
 
 La V1 no requiere backend ni lógica de servidor: Pages solo sirve los archivos estáticos generados por Vite.
 
-El despliegue a producción ocurre automáticamente vía la integración de Cloudflare Pages con GitHub (push a `main` → build y deploy automático) — ver Fase 10. También existe `npm run deploy` (`wrangler pages deploy`) como alternativa manual.
+El despliegue a producción ocurre automáticamente vía la integración de Cloudflare Pages con GitHub (push a `main` → build y deploy automático). También existe `npm run deploy` (`wrangler pages deploy`) como alternativa manual.
 
 ---
 
@@ -148,8 +149,11 @@ export interface MarkdownDocument {
   content: string;
   createdAt: number;
   updatedAt: number;
+  everEditedInApp: boolean;
 }
 ```
+
+`everEditedInApp` empieza en `false` al crear o importar un documento, y pasa a `true` recién en el primer guardado real de contenido (no al renombrar). Sirve para mostrar la etiqueta "New" en la lista (sección 9) mientras el archivo no haya sido tocado. Los documentos guardados antes de que este campo existiera se tratan como `true` al leerlos (ver `documentRepository.toPublicDocument`), para no etiquetar como "New" contenido antiguo que ya se venía usando.
 
 ### IndexedDB
 
@@ -229,11 +233,7 @@ El archivo original del dispositivo no se modifica.
 
 ### Editar
 
-La fuente de verdad será:
-
-```text
-MarkdownDocument.content
-```
+La fuente de verdad es `MarkdownDocument.content`.
 
 ### Autoguardado
 
@@ -262,24 +262,11 @@ Al salir del editor con cambios pendientes, se debe ejecutar el guardado pendien
 
 ### Vista previa
 
-El mismo contenido se renderiza con:
-
-```text
-react-markdown
-```
-
-No se almacenará HTML generado.
+El mismo contenido se renderiza con `react-markdown`. No se almacenará HTML generado.
 
 ### Descargar
 
-Generar un archivo usando:
-
-```text
-Blob
-type: text/markdown
-```
-
-con el nombre actual del documento.
+Generar un archivo con `Blob` (`type: text/markdown`) con el nombre actual del documento.
 
 ### Eliminar
 
@@ -356,21 +343,7 @@ existsByName(name: string, excludeId?: string): Promise<boolean>
 
 `existsByName` se implementa con `store.index('nameKey').get(normalize(name))` (ver índice único en sección 4), no con `getAll()` + filtro. `normalize` = `trim().toLowerCase()`.
 
-Flujo:
-
-```text
-React
-  ↓
-Hooks
-  ↓
-DocumentRepository
-  ↓
-idb
-  ↓
-IndexedDB
-```
-
-Esto desacopla la UI de la persistencia y facilita una futura sincronización remota.
+El flujo es el mismo de la sección 6 (React → hooks → `documentRepository` → `idb` → IndexedDB): esto desacopla la UI de la persistencia y facilita una futura sincronización remota.
 
 ---
 
@@ -414,11 +387,13 @@ Lista, ordenada por fecha de edición descendente. Debajo del nombre, truncado a
 README.md                                     ⋮
 20/09/2026, 08:32 PM - 12.4 KB
 
-notes.md                                      ⋮
+notas.md   New                                ⋮
 19/09/2026, 08:15 AM - 3.1 KB
 ─────────────────────────────────────────────
                 v{versión}
 ```
+
+Junto al nombre aparece la etiqueta "New" mientras `everEditedInApp` (sección 4) siga en `false` — es decir, mientras el archivo no haya sido editado dentro de la app desde que se creó o importó.
 
 La versión (de `package.json`, inyectada en build time vía `define` de Vite) se muestra una sola vez, en un footer fijo debajo de la lista — no en el menú de cada documento, donde se repetiría innecesariamente una vez por archivo.
 
@@ -624,224 +599,21 @@ El identificador de lenguaje después de las backticks (ej. "json" en ` ```json 
 
 ---
 
-# 15. Plan de implementación
+# 15. Historial de implementación
 
-## Fase 0 — Bootstrap
+La V1 se construyó en 10 fases, todas completadas y publicadas (sección 21). El detalle de QUÉ hace cada parte ya vive en las secciones de producto correspondientes (4–14), no acá — esto es solo un resumen de CÓMO se llegó, para no perder trazabilidad.
 
-Estado: **iniciado / scaffold generado**.
-
-El proyecto se creó con el generador oficial de Cloudflare para React + Pages:
-
-```bash
-npm create cloudflare@latest -- markdown-space --framework=react --platform=pages
-```
-
-Selecciones realizadas durante el scaffold:
-
-```text
-Framework: React
-Platform: Pages
-Variant: TypeScript
-Linter: Oxlint
-Node.js: 24
-Deploy inicial: No
-```
-
-El generador delegó la creación del frontend a Vite mediante la plantilla React + TypeScript.
-
-Pasos inmediatos:
-
-```bash
-cd markdown-space
-npm run dev
-```
-
-Pendiente dentro de esta fase:
-
-- Configurar Tailwind CSS 4 (`@tailwindcss/vite`).
-- Instalar Lucide React.
-- Eliminar el contenido demo del scaffold (`App.css`, contador, `hero.png`, links a Vite/React).
-- Hosting: se mantiene Cloudflare Pages, tal como lo dejó el scaffold inicial (no requiere migración — ver historial de la decisión en la sección "Hosting").
-- Crear la estructura inicial de carpetas.
-- Crear/conectar el repositorio remoto `markdown-space` si aún no está asociado.
-
-**Resultado esperado:** aplicación base funcionando localmente, con el scaffold oficial de Cloudflare Pages.
-
----
-
-## Fase 1 — Persistencia
-
-- Instalar `idb`, `vitest`, `fake-indexeddb` (dev).
-- Crear `db.ts`.
-- Crear IndexedDB `markdown-space`.
-- Crear store `documents`.
-- Crear índice `updatedAt`.
-- Crear índice único `nameKey` (versión normalizada de `name`, case-insensitive).
-- Crear `documentRepository`.
-- Implementar CRUD.
-- Generar IDs con `crypto.randomUUID()`.
-- Implementar nombres únicos (case-insensitive).
-- Implementar generación de nombres `untitled-N` rellenando el hueco más bajo libre.
-
-**Validar (tests unitarios con `vitest` + `fake-indexeddb`):**
-
-- crear, leer, actualizar, eliminar;
-- `existsByName` detecta duplicados sin importar mayúsculas/minúsculas;
-- generación de `untitled-N` rellena huecos correctamente.
-
-**Validar manualmente en el navegador:**
-
-- recargar navegador;
-- comprobar persistencia real en IndexedDB (no solo en el mock de tests).
-
----
-
-## Fase 2 — Lista de documentos
-
-- Crear `DocumentsPage`.
-- Cargar documentos ordenados por `updatedAt`.
-- Crear documento desde `+`.
-- Crear empty state.
-- Abrir documentos (guardando `lastOpenedDocumentId` en `localStorage`, sección 8).
-- Eliminar con confirmación (limpiar `lastOpenedDocumentId` si apuntaba al documento eliminado).
-- Descargar desde menú.
-
-**Resultado:** gestión funcional de múltiples documentos.
-
----
-
-## Fase 3 — Editor CodeMirror
-
-- Instalar `@uiw/react-codemirror`, `@codemirror/lang-markdown`, `@codemirror/commands`.
-- Configurar Markdown.
-- Configurar syntax highlighting.
-- Crear tema dark custom (`EditorView.theme()` + `HighlightStyle`, no el paquete `@codemirror/theme-one-dark`).
-- Implementar:
-  - edición;
-  - undo/redo (extensión `history` de `@codemirror/commands`);
-  - números de línea opcionales.
-- Validar funcionamiento móvil temprano (Safari iOS tiene issues activos conocidos: auto-capitalización y comportamiento de `readOnly` con el teclado virtual).
-
-**Resultado:** editor Markdown usable en móvil.
-
----
-
-## Fase 4 — Autoguardado
-
-- Crear `useAutosave`.
-- Implementar debounce (~600 ms).
-- Mostrar:
-  - `Guardando…`
-  - `Guardado`
-  - `Error al guardar`
-- Actualizar `updatedAt`.
-- Resolver guardados pendientes al salir (flush en cleanup del componente editor y en `visibilitychange`/`pagehide`, ver sección 5).
-
-**Resultado:** no existe botón Guardar.
-
----
-
-## Fase 5 — Renombrado
-
-- Hacer editable el nombre del header.
-- Agregar `.md` automáticamente.
-- Validar duplicados.
-- Validar vacío.
-- Enter / blur confirma.
-- Escape cancela.
-- Mostrar errores inline.
-
----
-
-## Fase 6 — Preview
-
-- Instalar `react-markdown` y `remark-gfm` (tablas).
-- Crear `MarkdownPreview`.
-- Estilizar:
-  - headings;
-  - párrafos;
-  - enlaces;
-  - blockquotes;
-  - listas;
-  - inline code;
-  - code blocks;
-  - tablas (con scroll horizontal en mobile — las tablas reales del usuario tienen 4+ columnas).
-- Implementar:
-  - Vista previa.
-  - Editar.
-
-**Resultado:**
-
-```text
-Editor ↔ Vista previa
-```
-
----
-
-## Fase 7 — Importar y exportar
-
-### Importar
-
-- Permitir `.md`, con selección múltiple.
-- Leer con File API, de forma secuencial (no `Promise.all`).
-- Resolver nombres duplicados, incluyendo duplicados dentro del mismo lote.
-- Guardar en IndexedDB.
-- Si es 1 archivo: abrir automáticamente. Si son varios: quedarse en la lista con un aviso del resultado.
-
-### Exportar
-
-- Crear Blob.
-- Descargar con nombre actual.
-
----
-
-## Fase 8 — Refinamiento mobile-first
-
-Probar especialmente:
-
-- Safari en iPhone.
-- Chrome en Android.
-- viewport pequeño.
-- teclado virtual.
-- portrait.
-- desktop Chrome/Safari/Firefox.
-
-Revisar:
-
-- targets táctiles;
-- scroll;
-- foco;
-- selección;
-- safe areas;
-- estados de error;
-- transición editor-preview.
-
----
-
-## Fase 9 — Instalabilidad (PWA mínima)
-
-- Instalar `vite-plugin-pwa`.
-- Configurar el plugin en `vite.config.ts`: `registerType: 'autoUpdate'`, `injectRegister: null` (sin service worker activo — mantiene el alcance de "instalabilidad mínima, sin offline" de la sección 2).
-- Definir el manifest vía la opción `manifest` del plugin (nombre, iconos, `theme_color`, `background_color`, `display: 'standalone'`, `start_url`) — el plugin genera `manifest.webmanifest` e inyecta el `<link>` automáticamente.
-- Generar iconos (192px, 512px, maskable).
-- Agregar meta tags para iOS (`apple-touch-icon`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`) en `index.html` — el plugin no los cubre automáticamente para iOS.
-- Sin service worker ni caché offline en V1 — solo se habilita el flujo de "Instalar app" / "Agregar a pantalla de inicio"; el usuario decide si instalarla o seguir usándola desde el navegador.
-
-**Resultado:** el usuario puede instalar la app en su dispositivo si lo desea, sin que sea obligatorio ni cambie el comportamiento en el navegador normal.
-
----
-
-## Fase 10 — Despliegue
-
-Se ejecuta al final, únicamente cuando la app esté lista y probada (Fases 0–9 completas, incluida la validación mobile de la Fase 8).
-
-**Mecanismo real:** Cloudflare Pages con integración de Git — el proyecto quedó conectado al repositorio de GitHub (`alexjcm/markdown-space`) desde el dashboard de Cloudflare. Cada push a `main` dispara un build y deploy automático (framework preset detectado, build output directory `dist`). No hace falta correr nada manualmente para desplegar.
-
-- Alternativa manual disponible si hace falta: `npm run deploy` (`wrangler pages deploy`).
-- Verificar la app publicada: carga, persistencia en IndexedDB, instalación PWA mínima.
-- URL de producción: `https://markdown-space-7mr.pages.dev` (el nombre de proyecto no se puede renombrar después de creado; se aceptó tal cual).
-
-**Resultado:** V1 publicada en Cloudflare Pages.
+1. **Bootstrap** — scaffold oficial de Cloudflare (`npm create cloudflare@latest -- markdown-space --framework=react --platform=pages`, React + TypeScript + Pages + Oxlint + Node 24), Tailwind y Lucide agregados después.
+2. **Persistencia** — `idb` + `documentRepository` (sección 4, 7).
+3. **Lista de documentos** — `DocumentsPage` (sección 9).
+4. **Editor CodeMirror** — Markdown + syntax highlighting + undo/redo + números de línea (sección 10, 13).
+5. **Autoguardado** — `useAutosave` con debounce (sección 5).
+6. **Renombrado** — nombre editable en el header (sección 11).
+7. **Preview** — `react-markdown` + `remark-gfm` (sección 5, 10).
+8. **Importar y exportar** — selección múltiple, Blob para descarga (sección 5).
+9. **Refinamiento mobile-first** — validado en Safari iPhone, Chrome Android, teclado virtual, safe areas, targets táctiles.
+10. **Instalabilidad PWA** — `vite-plugin-pwa`, sin service worker ni offline (sección 2).
+11. **Despliegue** — Cloudflare Pages conectado a GitHub, deploy automático en cada push a `main` (sección 3, "Hosting").
 
 ---
 
@@ -914,21 +686,7 @@ Debe evitar:
 
 # 19. Evolución futura — Sincronización entre dispositivos
 
-La arquitectura debe permitir que Markdown Space evolucione sin reescribir el frontend.
-
-V1:
-
-```text
-React
-  ↓
-DocumentRepository
-  ↓
-idb
-  ↓
-IndexedDB
-```
-
-Futuro:
+La arquitectura (sección 6) ya desacopla la UI de `idb` a través de `documentRepository`, precisamente para permitir esto sin reescribir el frontend: `documentRepository` ganaría una rama hacia una API remota, en paralelo a IndexedDB.
 
 ```text
                     React
@@ -937,92 +695,27 @@ Futuro:
                  ┌────┴────┐
                  │         │
                  ▼         ▼
-             IndexedDB   API
-                           │
-                           ▼
-                  Cloudflare Worker
-                           │
-                ┌──────────┴──────────┐
-                │                     │
-              Auth0                  D1
+             IndexedDB   API → Cloudflare Worker → Auth0 (identidad) + D1 (almacenamiento remoto)
 ```
 
-Responsabilidades futuras:
+- **IndexedDB** seguiría como copia local de acceso rápido.
+- **Cloudflare Worker** haría de API: validación de usuario, lectura/escritura remota, reglas de sincronización.
+- **Auth0** cubriría autenticación e identidad.
+- **D1** almacenaría documentos y metadatos de sincronización.
 
-### IndexedDB
-
-- copia local;
-- acceso rápido;
-- posible cache local.
-
-### Cloudflare Worker
-
-- API backend;
-- validación de usuario;
-- lectura/escritura remota;
-- reglas de sincronización.
-
-### Auth0
-
-- autenticación;
-- identidad del usuario;
-- tokens para acceder a la API.
-
-### Cloudflare D1
-
-- almacenamiento remoto de documentos;
-- metadatos de sincronización.
-
-La implementación de sincronización deberá definir posteriormente:
-
-- estrategia de conflictos;
-- versión de documentos;
-- timestamps remotos;
-- comportamiento offline;
-- origen de verdad.
-
-Nada de esto forma parte de la V1.
+Queda por definir en su momento: estrategia de conflictos, versión de documentos, timestamps remotos, comportamiento offline, origen de verdad. Nada de esto forma parte de la V1.
 
 ---
 
 ## 20. Primera iteración técnica
 
-Antes de completar toda la interfaz, validar este flujo:
-
-```text
-Crear documento
-      ↓
-Abrir CodeMirror
-      ↓
-Escribir Markdown
-      ↓
-Autoguardar en IndexedDB
-      ↓
-Recargar navegador
-      ↓
-Documento sigue existiendo
-      ↓
-Descargar .md
-```
-
-Si este flujo funciona correctamente en móvil, la base técnica está validada.
+Flujo base (crear → editar → autoguardar en IndexedDB → recargar → persiste → descargar) validado en móvil desde el inicio del proyecto; sigue siendo el camino crítico que cualquier cambio futuro no debe romper.
 
 ---
 
 ## 21. Estado actual del proyecto
 
-Decisiones de scaffold ya cerradas:
-
-```text
-Repositorio: markdown-space (github.com/alexjcm/markdown-space)
-Runtime: Node.js 24
-Framework: React
-Lenguaje: TypeScript
-Build tool: Vite
-Linter: Oxlint
-Hosting: Cloudflare Pages, conectado por Git (deploy automático en cada push)
-Deploy: V1 ya publicada en https://markdown-space-7mr.pages.dev
-```
+Repositorio: `github.com/alexjcm/markdown-space`. Stack y hosting: ver sección 3. V1 ya publicada en `https://markdown-space-7mr.pages.dev`.
 
 
 # Referencias:

@@ -95,8 +95,8 @@ export function DocumentsPage({
   return (
     <div className="flex h-svh flex-col">
       <header
-        className="flex items-center justify-between gap-2 border-b border-border px-4 pb-4"
-        style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+        className="flex items-center justify-between gap-2 border-b border-border px-4"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <input
           ref={fileInputRef}

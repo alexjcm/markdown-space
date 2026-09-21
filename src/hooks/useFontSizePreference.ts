@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 const STORAGE_KEY = 'markdown-space.editorFontSize'
-const MIN_FONT_SIZE = 12
+const MIN_FONT_SIZE = 11
 const MAX_FONT_SIZE = 22
 const DEFAULT_FONT_SIZE = 14
 
