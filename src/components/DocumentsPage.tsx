@@ -265,9 +265,6 @@ export function DocumentsPage({
                     >
                       Delete
                     </button>
-                    <p className="border-t border-border px-4 py-2 text-xs text-text-secondary">
-                      v{__APP_VERSION__}
-                    </p>
                   </div>
                 </>
               )}
@@ -275,6 +272,10 @@ export function DocumentsPage({
           ))}
         </ul>
       )}
+
+      <p className="border-t border-border px-4 py-2 text-center text-xs text-text-secondary">
+        v{__APP_VERSION__}
+      </p>
     </div>
   )
 }

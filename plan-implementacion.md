@@ -415,7 +415,11 @@ README.md                                     ⋮
 
 notes.md                                      ⋮
 19/09/2026, 08:15                        3.1 KB
+─────────────────────────────────────────────
+                v{versión}
 ```
+
+La versión (de `package.json`, inyectada en build time vía `define` de Vite) se muestra una sola vez, en un footer fijo debajo de la lista — no en el menú de cada documento, donde se repetiría innecesariamente una vez por archivo.
 
 ### Empty state
 
@@ -438,11 +442,8 @@ Si no hay coincidencias, se muestra "No results for "{query}"" en vez de la list
 
 - Descargar `.md`
 - Eliminar
-- v{versión} (línea informativa, no interactiva, al final del menú)
 
 El renombrado se realiza exclusivamente desde el nombre editable dentro del editor (sección 11) — no se agrega una opción de renombrar en este menú, para mantener un único punto de validación de nombres/duplicados en vez de duplicar esa lógica en dos lugares. Es el enfoque más simple: una sola ruta de edición de nombre, un solo lugar donde se valida "vacío" y "duplicado".
-
-La versión mostrada viene de `package.json` (inyectada en build time vía `define` de Vite), para no duplicar ese dato a mano en el código fuente. Se repite en este menú y en el menú de opciones del editor (sección 10) — ambos son los únicos puntos "⋮" de la app, y no existe una pantalla dedicada de Ajustes/Acerca de. Sin el prefijo "Markdown Space": el nombre de la app ya está en el header, repetirlo en el menú es redundante.
 
 ---
 
