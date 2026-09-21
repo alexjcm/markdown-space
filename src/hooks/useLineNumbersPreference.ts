@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 const STORAGE_KEY = 'markdown-space.showLineNumbers'
+const DEFAULT_SHOW_LINE_NUMBERS = false
 
 function readPreference(): boolean {
   return localStorage.getItem(STORAGE_KEY) === 'true'
@@ -17,5 +18,10 @@ export function useLineNumbersPreference() {
     })
   }
 
-  return { showLineNumbers, toggle }
+  function reset() {
+    localStorage.setItem(STORAGE_KEY, String(DEFAULT_SHOW_LINE_NUMBERS))
+    setShowLineNumbers(DEFAULT_SHOW_LINE_NUMBERS)
+  }
+
+  return { showLineNumbers, toggle, reset }
 }

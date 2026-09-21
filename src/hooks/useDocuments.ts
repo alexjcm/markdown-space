@@ -26,6 +26,7 @@ export function useDocuments() {
       content: '',
       createdAt: now,
       updatedAt: now,
+      everEditedInApp: false,
     }
     await documentRepository.create(document)
     await refresh()
@@ -54,6 +55,7 @@ export function useDocuments() {
             // order reflect the actual edit, not the import moment.
             createdAt: Date.now(),
             updatedAt: file.lastModified || Date.now(),
+            everEditedInApp: false,
           }
           await documentRepository.create(document)
           imported.push(document)

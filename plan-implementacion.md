@@ -97,7 +97,8 @@ Sin router: navegación con estado local de React — ver justificación en secc
 - CodeMirror 6, vía el wrapper `@uiw/react-codemirror` (simplifica la integración con refs/efectos de React).
 - `@codemirror/lang-markdown` (sintaxis Markdown).
 - `@codemirror/commands` (undo/redo — el historial vive aquí, no en el paquete obsoleto `@codemirror/history`).
-- Tema dark custom vía `EditorView.theme()` + `HighlightStyle` (el paquete oficial `@codemirror/theme-one-dark` usa una paleta fija distinta a la definida en la sección 13, no sirve tal cual).
+- Tema VS Code Dark Modern custom vía `EditorView.theme()` + `HighlightStyle` (el paquete oficial `@codemirror/theme-one-dark` usa una paleta fija distinta a la definida en la sección 13, no sirve tal cual), combinado con `@uiw/codemirror-theme-monokai` y `@uiw/codemirror-theme-dracula` para los temas Monokai y Dracula seleccionables (sección 13) — paquetes individuales, no la umbrella `@uiw/codemirror-themes-all`, para poder cargarlos por separado bajo demanda.
+- `@codemirror/lang-json`, `@codemirror/lang-java`, `@codemirror/lang-sql` — resaltado real dentro de bloques de código con lenguaje reconocido (sección 13), elegidos por uso real medido, no adivinado. Cargados bajo demanda, no empaquetados de entrada (sección 13).
 
 ### Markdown
 
@@ -407,19 +408,21 @@ Markdown Space           🔍  ⬆  +
 
 `⬆` (Importar) es la acción prominente (acento); `+` (Crear) es secundaria (gris) — ver justificación en la sección 5, "Importar". `🔍` (Buscar) solo se muestra si hay al menos un documento; al tocarlo, reemplaza el título y los íconos por una barra de búsqueda (ver "Búsqueda", más abajo) — no ocupa espacio cuando no se usa.
 
-Lista, ordenada por fecha de edición descendente. Debajo del nombre se muestra fecha y hora exactas de la última edición (izquierda) y el peso del archivo en KB/MB (derecha) — se prefirió sobre tiempo relativo ("hace 2 min") porque el flujo más común es importar `.md` existentes, donde la fecha exacta y el tamaño ayudan a reconocer el archivo correcto entre varios similares:
+Lista, ordenada por fecha de edición descendente. Debajo del nombre, truncado a una sola línea (`truncate`, para que nombres largos no hagan crecer la fila y desalineen el botón `⋮` entre archivos), se muestra fecha y hora exactas de la última edición y el peso del archivo, en una misma línea separados por un guion — se prefirió sobre tiempo relativo ("hace 2 min") porque el flujo más común es importar `.md` existentes, donde la fecha exacta y el tamaño ayudan a reconocer el archivo correcto entre varios similares. La fecha empieza por el día (`DD/MM/AAAA, hh:mm a. m./p. m.`, formateada a mano sin depender de un locale de `Intl`, para no heredar convenciones regionales inesperadas):
 
 ```text
 README.md                                     ⋮
-20/09/2026, 20:32                       12.4 KB
+20/09/2026, 08:32 PM - 12.4 KB
 
 notes.md                                      ⋮
-19/09/2026, 08:15                        3.1 KB
+19/09/2026, 08:15 AM - 3.1 KB
 ─────────────────────────────────────────────
                 v{versión}
 ```
 
 La versión (de `package.json`, inyectada en build time vía `define` de Vite) se muestra una sola vez, en un footer fijo debajo de la lista — no en el menú de cada documento, donde se repetiría innecesariamente una vez por archivo.
+
+Al abrir el menú `⋮` de un archivo, esa fila se resalta (mismo fondo que el menú) y el fondo del resto de la pantalla se oscurece levemente — el menú de un archivo puede visualmente superponerse a la fila siguiente (es más alto que una fila), y sin esta señal el usuario puede confundir a qué archivo pertenecen esas opciones.
 
 ### Empty state
 
@@ -474,10 +477,15 @@ No hay barra inferior: Undo/Redo se movieron del pie de pantalla a una fila ango
 
 El área de contenido reserva su propio padding inferior con `env(safe-area-inset-bottom)`, ya que no existe una barra inferior que absorba el safe area del home indicator de iOS.
 
-El menú `⋮` del header contiene:
+El menú `⋮` del header contiene (las primeras tres filas solo visibles en modo Editor; ninguna aplica en Vista previa):
 
 - Mostrar/Ocultar números de línea (sección 12)
+- Tamaño de fuente del editor (sección 12) — botones `−`/`+`, valor actual en el medio.
+- Tema del editor (sección 13) — tres opciones seleccionables en una fila.
+- Reset settings — vuelve las tres preferencias anteriores a sus valores por defecto.
 - v{versión} (línea informativa, no interactiva)
+
+El padding izquierdo del área de contenido (`.cm-content`) es menor que el resto (8px vs. 16px), para que el texto aproveche más el ancho disponible en pantallas angostas.
 
 Header y fila de acciones deben permanecer fijos siempre; solo el área de contenido (CodeMirror o Vista previa) scrollea internamente, sin importar qué tan largo sea el documento (el contenedor raíz usa `h-svh`, no `min-h-svh`, para que el scroll quede acotado al área de contenido).
 
@@ -495,7 +503,7 @@ No habrá split view.
 
 Al abrir un documento, siempre se iniciará en modo Editor.
 
-La posición del cursor se persiste por documento (localStorage, clave por `documentId`) en cada cambio de selección, y se restaura — junto con el scroll hacia esa posición — al reabrir el documento, incluso después de volver a la lista o recargar la app.
+La posición del cursor se persiste por documento (localStorage, clave por `documentId`) en cada cambio de selección, y se restaura — junto con el scroll hacia esa posición — al reabrir el documento, incluso después de volver a la lista o recargar la app. El scroll se dispara desde `onCreateEditor` (no desde un `useEffect` de montaje), que corre exactamente cuando CodeMirror termina de crear su `EditorView` — evita una condición de carrera en la que el efecto podía ejecutarse antes de que el editor existiera, dejando el documento abierto siempre desde el principio en vez de la última posición.
 
 ---
 
@@ -534,25 +542,23 @@ Ya existe un archivo con ese nombre.
 
 ---
 
-## 12. Números de línea
+## 12. Fuente, números de línea y tamaño de letra
 
-La preferencia será configurable.
+Fuente del editor (fija, no configurable por el usuario): `Menlo, Monaco, Consolas, 'Courier New', monospace`. Menlo/Monaco cubren macOS; `Consolas` es el fallback para Windows (mejor legibilidad de código que `'Courier New'`, que solo se usa si ni Consolas está disponible); `monospace` es el fallback genérico final para cualquier otro sistema.
 
-Se recomienda guardar esta preferencia en:
+Ambas son preferencias globales (no por documento) configurables desde el menú `⋮` del editor, guardadas en:
 
 ```text
 localStorage
 ```
 
-porque es un ajuste pequeño de interfaz y no necesita IndexedDB.
+porque son ajustes pequeños de interfaz y no necesitan IndexedDB.
 
-Clave sugerida:
+Números de línea — clave `markdown-space.showLineNumbers`, valor inicial oculto (`false`) por defecto.
 
-```text
-markdown-space.showLineNumbers
-```
+Tamaño de fuente — clave `markdown-space.editorFontSize`, rango `12px`–`22px`, valor inicial `14px`. Los botones `−`/`+` se deshabilitan al llegar a cada límite en vez de permitir salirse de rango.
 
-Valor inicial: oculto (`false`) por defecto; el usuario puede activarlo cuando quiera.
+Las tres preferencias del editor (números de línea, tamaño de fuente, tema — sección 13) tienen un botón conjunto "Reset settings" al final del menú `⋮`, que las vuelve a sus valores iniciales de una sola vez. No afecta documentos ni su contenido — solo estas preferencias de interfaz.
 
 ---
 
@@ -576,6 +582,31 @@ Paleta inicial:
 ```
 
 El objetivo es inspirarse en VS Code Dark sin replicar su interfaz completa.
+
+Esta paleta es la de la interfaz general de la app (listas, header, botones, diálogos) y es fija — no tiene selector, solo existe en modo oscuro (sección 2, "Fuera de la V1").
+
+### Tema del editor (contenido)
+
+A diferencia de la paleta general, el color del **área de escritura de CodeMirror** sí es seleccionable, con un máximo de 3 opciones (todas oscuras; se descartan explícitamente los temas tipo light mode) desde el menú `⋮` del editor (sección 10):
+
+- **Dark Modern** — el tema por defecto, hecho a mano replicando el tema por defecto real de VS Code (no "Dark+" clásico). Colores verificados contra el código fuente de `microsoft/vscode` (`extensions/theme-defaults/themes/dark_modern.json`, encadenado a `dark_plus.json` → `dark_vs.json`), no adivinados: fondo `#1f1f1f`, texto `#cccccc`, números de línea `#6e7681`, encabezados/negrita `#569cd6`, cursiva `#c586c0`, código inline `#ce9178`, marcador de lista `#6796e6`, marcador de cita `#6a9955`. El color de cursor/selección (`#007acc`) es una elección propia — VS Code no define un color de cursor específico en esa cadena de temas, así que se mantiene el acento de la app para dar continuidad visual.
+- **Monokai** y **Dracula** — `@uiw/codemirror-theme-monokai` y `@uiw/codemirror-theme-dracula` (paquetes individuales del mismo autor que `@uiw/react-codemirror`, no la umbrella `@uiw/codemirror-themes-all`), que ya incluyen su propio resaltado de sintaxis, sin necesidad de mapear colores a mano como con Dark Modern.
+
+Preferencia guardada en `localStorage`, clave `markdown-space.editorTheme`, por defecto `Dark Modern`.
+
+Arquitectura: `editorTheme.ts` separa una capa **estructural** (padding, tamaño de fuente, safe areas — igual sin importar el tema, `createEditorLayout(fontSize)`) de una capa de **paleta** (colores, intercambiable). Dark Modern se empaqueta de entrada (`vscodeDarkPalette`, es el tema por defecto, lo ve todo el mundo al abrir la app). Monokai y Dracula se cargan bajo demanda (`loadEditorThemePalette(themeId)`, `import()` dinámico) — solo quien realmente los elige descarga esos paquetes; mientras tanto `DocumentEditor.tsx` sigue mostrando la paleta actual (Dark Modern al inicio) hasta que la promesa resuelve. Cambiar de tema no reinicia el editor ni pierde el cursor, scroll o historial de deshacer/rehacer — CodeMirror reconfigura la extensión de tema en caliente, sin remontar la vista.
+
+**Bloques de código vs. código inline:** `@lezer/markdown` usa el mismo nodo (`CodeText`) para el contenido de código en línea y el de bloques ` ``` `, así que un `HighlightStyle` no puede darles colores distintos — y agregar una segunda regla de estilo con contexto (`"FencedCode/CodeText"`) tampoco alcanza: `@lezer/common` combina reglas de estilo de distintas fuentes sin reordenarlas por especificidad, así que la regla sin contexto (código en línea) sigue ganando. La solución real es una decoración de CodeMirror (`ViewPlugin` + `Decoration.mark`, con `Prec.highest` para que su span quede más adentro que el del resaltado de sintaxis, ya que el nodo DOM más interno es el que determina el color visible) que fuerza el color de texto normal en el contenido de los bloques de código — así quedan en texto plano, como en VS Code real, y el código en línea conserva su color distintivo.
+
+**Resaltado real por lenguaje dentro de bloques de código:** `markdown({ codeLanguages })` activa un parseo anidado (vía `@lezer/markdown`'s `parseMixed`) cuando el identificador después de las backticks (ej. ` ```json `) coincide con un lenguaje soportado. Elegidos a partir del uso real medido en una muestra de 43 documentos (no adivinados): **JSON** (`@codemirror/lang-json`, 3 usos), **Java** (`@codemirror/lang-java`, 6 usos) y **SQL** (`@codemirror/lang-sql`, 1 uso). El ~90% restante de los bloques de la muestra (sin lenguaje o `text`) no necesita resaltado — ya se benefician del punto anterior. Bash quedó descartado (1 solo uso real, no justifica el peso).
+
+`codeLanguages` recibe un array de `LanguageDescription.of({ name, alias, load })`, no las funciones de lenguaje importadas directamente — `load` es un `import()` dinámico, y CodeMirror ya trae soporte nativo para esto: mientras la promesa no resuelve, el bloque se muestra sin resaltar (`ParseContext.getSkippingParser`), y en cuanto resuelve, CodeMirror reparsea y aplica el resaltado real, solo. Con esto y la carga diferida de Monokai/Dracula, el chunk del editor bajó de ~250 KB a ~117 KB gzip — por debajo de lo que pesaba antes de agregar ningún tema extra esta sesión.
+
+Los colores de los tokens de programación (keyword, string, number, bool/null, comment, propertyName, typeName/className, nombre de función) están verificados contra `dark_vs.json`/`dark_plus.json` de `microsoft/vscode`, igual que los de markdown — no son una paleta inventada.
+
+La decoración de "texto plano" del punto anterior se desactiva automáticamente para los bloques con lenguaje reconocido (comparando el mismo identificador que usa `codeLanguages`), para no taparle el color al resaltado real.
+
+El identificador de lenguaje después de las backticks (ej. "json" en ` ```json `) se muestra en el mismo gris tenue que las backticks (`tags.labelName`), no en el color de texto normal — es sintaxis de marcado, no contenido.
 
 ---
 

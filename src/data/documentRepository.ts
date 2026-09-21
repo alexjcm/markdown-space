@@ -4,7 +4,9 @@ import { normalizeName } from '../utils/normalizeName'
 import { splitFileName } from '../utils/splitFileName'
 
 function toPublicDocument({ nameKey: _nameKey, ...document }: StoredDocument): MarkdownDocument {
-  return document
+  // Records saved before `everEditedInApp` existed have no such field; treat
+  // them as already edited so old, unrelated content isn't mislabeled "New".
+  return { ...document, everEditedInApp: document.everEditedInApp ?? true }
 }
 
 async function getAll(): Promise<MarkdownDocument[]> {

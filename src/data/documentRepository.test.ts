@@ -11,6 +11,7 @@ function makeDocument(overrides: Partial<MarkdownDocument> = {}): MarkdownDocume
     content: '',
     createdAt: now,
     updatedAt: now,
+    everEditedInApp: false,
     ...overrides,
   }
 }

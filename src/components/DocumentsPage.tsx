@@ -204,16 +204,26 @@ export function DocumentsPage({
       ) : (
         <ul className="flex-1 divide-y divide-border overflow-y-auto">
           {filteredDocuments.map((document) => (
-            <li key={document.id} className="relative flex items-center justify-between px-4">
+            <li
+              key={document.id}
+              className={`relative flex items-center justify-between px-4 ${openMenuId === document.id ? 'bg-surface' : ''}`}
+            >
               <button
                 type="button"
                 onClick={() => onOpen(document.id)}
-                className="flex-1 py-3 text-left"
+                className="min-w-0 flex-1 py-3 text-left"
               >
-                <p className="text-text-primary">{document.name}</p>
-                <p className="flex items-center justify-between gap-3 text-sm text-text-secondary">
-                  <span>{formatDateTime(document.updatedAt)}</span>
-                  <span>{formatFileSize(new TextEncoder().encode(document.content).length)}</span>
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-text-primary">{document.name}</p>
+                  {!document.everEditedInApp && (
+                    <span className="shrink-0 rounded-full bg-accent/20 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                      New
+                    </span>
+                  )}
+                </div>
+                <p className="truncate text-sm text-text-secondary">
+                  {formatDateTime(document.updatedAt)} -{' '}
+                  {formatFileSize(new TextEncoder().encode(document.content).length)}
                 </p>
               </button>
 
@@ -235,7 +245,7 @@ export function DocumentsPage({
                   <button
                     type="button"
                     aria-label="Close menu"
-                    className="fixed inset-0 z-10 cursor-default"
+                    className="fixed inset-0 z-10 cursor-default bg-black/20"
                     onClick={closeMenu}
                   />
                   <div

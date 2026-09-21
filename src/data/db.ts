@@ -9,7 +9,7 @@ export interface StoredDocument extends MarkdownDocument {
   nameKey: string
 }
 
-export interface MarkdownSpaceDB extends DBSchema {
+interface MarkdownSpaceDB extends DBSchema {
   documents: {
     key: string
     value: StoredDocument

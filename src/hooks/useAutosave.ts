@@ -4,7 +4,7 @@ import type { MarkdownDocument } from '../types/document'
 
 const DEBOUNCE_MS = 600
 
-export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface UseAutosaveOptions {
   document: MarkdownDocument | undefined
@@ -29,7 +29,12 @@ export function useAutosave({ document: doc, content }: UseAutosaveOptions) {
     const { doc, content } = latestRef.current
     if (!doc || content === doc.content) return
 
-    const updated: MarkdownDocument = { ...doc, content, updatedAt: Date.now() }
+    const updated: MarkdownDocument = {
+      ...doc,
+      content,
+      updatedAt: Date.now(),
+      everEditedInApp: true,
+    }
     setStatus('saving')
     try {
       await documentRepository.update(updated)
