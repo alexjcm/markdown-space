@@ -19,6 +19,15 @@ export default defineConfig({
       // no offline caching (out of scope for V1, see plan section 2).
       injectRegister: null,
       registerType: 'autoUpdate',
+      // `generateSW` (the default strategy) still builds sw.js with a full
+      // precache manifest of every app asset even though nothing registers
+      // it today — harmless while that stays true, but a silent multi-MB
+      // Cache Storage write waiting to happen if a future change ever does
+      // register it. Emptied explicitly so a dormant service worker can
+      // never precache anything, matching the "no offline caching" scope.
+      workbox: {
+        globPatterns: [],
+      },
       manifest: {
         name: 'Markdown Space',
         short_name: 'Markdown Space',

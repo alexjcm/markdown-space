@@ -3,6 +3,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { DocumentsPage } from './components/DocumentsPage'
 import { useDocuments } from './hooks/useDocuments'
 import type { MarkdownDocument } from './types/document'
+import { clearCursorPosition } from './utils/cursorPositionStorage'
 import { downloadMarkdown } from './utils/downloadMarkdown'
 
 // The document list doesn't need CodeMirror at all: it's loaded separately,
@@ -82,6 +83,7 @@ function App() {
     if (!pendingDeleteId) return
 
     await deleteDocument(pendingDeleteId)
+    clearCursorPosition(pendingDeleteId)
 
     if (localStorage.getItem(LAST_OPENED_KEY) === pendingDeleteId) {
       localStorage.removeItem(LAST_OPENED_KEY)

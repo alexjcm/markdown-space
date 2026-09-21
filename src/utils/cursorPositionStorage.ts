@@ -12,3 +12,7 @@ export function getCursorPosition(documentId: string): number | undefined {
 export function saveCursorPosition(documentId: string, offset: number): void {
   localStorage.setItem(storageKey(documentId), String(offset))
 }
+
+export function clearCursorPosition(documentId: string): void {
+  localStorage.removeItem(storageKey(documentId))
+}

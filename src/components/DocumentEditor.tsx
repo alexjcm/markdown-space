@@ -183,14 +183,14 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
   return (
     <div className="flex h-svh flex-col">
       <header
-        className="relative flex items-center gap-3 border-b border-border px-4"
+        className="relative flex items-center gap-1 border-b border-border px-2"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <button
           type="button"
           aria-label="Back"
           onClick={handleBack}
-          className="flex h-11 w-11 items-center justify-center text-text-secondary"
+          className="flex h-11 w-11 shrink-0 items-center justify-center text-text-secondary"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -244,11 +244,34 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
           )}
         </div>
 
+        {mode === 'editor' && (
+          <>
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!canUndo}
+              aria-label="Undo"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
+            >
+              <Undo2 className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={!canRedo}
+              aria-label="Redo"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
+            >
+              <Redo2 className="h-5 w-5" />
+            </button>
+          </>
+        )}
+
         <button
           type="button"
           aria-label={mode === 'editor' ? 'Preview' : 'Edit'}
           onClick={() => setMode(mode === 'editor' ? 'preview' : 'editor')}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary hover:bg-surface"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-secondary hover:bg-surface"
         >
           {mode === 'editor' ? <Eye className="h-5 w-5" /> : <Pencil className="h-5 w-5" />}
         </button>
@@ -259,7 +282,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
           aria-haspopup="menu"
           aria-expanded={isMenuOpen}
           onClick={() => (isMenuOpen ? closeMenu() : openMenu())}
-          className="relative z-30 flex h-11 w-11 items-center justify-center text-text-secondary"
+          className="relative z-30 flex h-11 w-11 shrink-0 items-center justify-center text-text-secondary"
         >
           <MoreVertical className="h-5 w-5" />
         </button>
@@ -274,7 +297,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
             />
             <div
               role="menu"
-              className="absolute top-full right-4 z-20 w-60 overflow-hidden rounded-md border border-border bg-surface shadow-lg"
+              className="absolute top-full right-2 z-20 w-60 overflow-hidden rounded-md border border-border bg-surface shadow-lg"
             >
               {mode === 'editor' && (
                 <>
@@ -357,54 +380,36 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
         )}
       </header>
 
-      {mode === 'editor' && (
-        <div className="flex items-center gap-1 border-b border-border px-2">
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={!canUndo}
-            aria-label="Undo"
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
-          >
-            <Undo2 className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={handleRedo}
-            disabled={!canRedo}
-            aria-label="Redo"
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
-          >
-            <Redo2 className="h-5 w-5" />
-          </button>
-        </div>
-      )}
-
-      <div className="min-h-0 flex-1">
+      {/* This is the only scroll container for the mode below — CodeMirror
+          and MarkdownPreview both render at their natural (auto) height, so
+          the version footer sits after the real end of the content instead
+          of staying pinned while the user scrolls through it. */}
+      <div className="min-h-0 flex-1 overflow-y-auto bg-editor-bg">
         {mode === 'editor' ? (
-          <CodeMirror
-            ref={editorRef}
-            value={content}
-            onChange={setContent}
-            onUpdate={handleEditorUpdate}
-            onCreateEditor={handleCreateEditor}
-            theme={theme}
-            extensions={[
-              markdown({ addKeymap: false, codeLanguages: fencedCodeLanguages }),
-              EditorView.lineWrapping,
-            ]}
-            basicSetup={{
-              lineNumbers: showLineNumbers,
-              foldGutter: false,
-            }}
-            selection={
-              initialCursor !== undefined
-                ? { anchor: Math.min(initialCursor, content.length) }
-                : undefined
-            }
-            height="100%"
-            className="h-full"
-          />
+          <>
+            <CodeMirror
+              ref={editorRef}
+              value={content}
+              onChange={setContent}
+              onUpdate={handleEditorUpdate}
+              onCreateEditor={handleCreateEditor}
+              theme={theme}
+              extensions={[
+                markdown({ addKeymap: false, codeLanguages: fencedCodeLanguages }),
+                EditorView.lineWrapping,
+              ]}
+              basicSetup={{
+                lineNumbers: showLineNumbers,
+                foldGutter: false,
+              }}
+              selection={
+                initialCursor !== undefined
+                  ? { anchor: Math.min(initialCursor, content.length) }
+                  : undefined
+              }
+            />
+            <VersionFooter />
+          </>
         ) : (
           <Suspense
             fallback={
@@ -414,9 +419,21 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
             }
           >
             <MarkdownPreview content={content} />
+            <VersionFooter />
           </Suspense>
         )}
       </div>
     </div>
+  )
+}
+
+function VersionFooter() {
+  return (
+    <p
+      className="border-t border-border px-4 py-2 text-center text-xs text-text-secondary"
+      style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+    >
+      v{__APP_VERSION__}
+    </p>
   )
 }

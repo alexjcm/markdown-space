@@ -98,7 +98,10 @@ function createFencedCodePlainText(foregroundColor: string): Extension {
 export function createEditorLayout(fontSize: number): Extension {
   return EditorView.theme({
     '&': {
-      height: '100%',
+      // Not a fixed 100%: the editor grows past the viewport for long
+      // documents (its parent scrolls, see the wrapping div in
+      // DocumentEditor), while still filling the screen for short ones.
+      minHeight: '100%',
       fontSize: `${fontSize}px`,
     },
     '.cm-content': {
@@ -108,9 +111,9 @@ export function createEditorLayout(fontSize: number): Extension {
       // Matches the tightened left padding (see the gutter rule below) —
       // reclaims horizontal space on narrow mobile viewports on both sides.
       paddingRight: '1px',
-      // No bottom bar in Editor mode: the content itself reserves space for
-      // iOS's home indicator, as part of the scrollable area.
-      paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
+      // The version footer after the editor now reserves the iOS home
+      // indicator's safe area, so this only needs a plain bottom gap.
+      paddingBottom: '16px',
     },
     '&.cm-focused': {
       outline: 'none',
@@ -137,8 +140,21 @@ const vscodeDarkChrome = EditorView.theme(
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: '#007acc',
     },
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: 'rgba(0, 122, 204, 0.35)',
+    // CodeMirror's own base theme targets the focused selection with
+    // "&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground"
+    // (background: #233) — more specific than a plain ".cm-selectionBackground"
+    // rule, so it silently won over the color below without `!important`,
+    // making selected text nearly indistinguishable from the background.
+    // Colors verified against VS Code's own defaults (editor.selectionBackground
+    // #264f78, editor.inactiveSelectionBackground #3a3d41 — dark_vs.json).
+    '.cm-selectionBackground': {
+      backgroundColor: '#3a3d41 !important',
+    },
+    '&.cm-focused .cm-selectionBackground': {
+      backgroundColor: '#264f78 !important',
+    },
+    '.cm-content ::selection': {
+      backgroundColor: '#264f78 !important',
     },
     '.cm-gutters': {
       backgroundColor: '#1f1f1f',

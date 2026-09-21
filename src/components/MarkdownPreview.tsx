@@ -57,10 +57,10 @@ interface MarkdownPreviewProps {
 
 export function MarkdownPreview({ content }: MarkdownPreviewProps) {
   return (
-    <div
-      className="h-full overflow-y-auto px-4 pt-4"
-      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
-    >
+    // Scrolling is handled by the wrapping container in DocumentEditor, so
+    // the version footer after this appears only past the real end of the
+    // content instead of staying pinned to the viewport.
+    <div className="px-4 pt-4 pb-4">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}
       </ReactMarkdown>

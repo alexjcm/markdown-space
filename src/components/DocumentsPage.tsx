@@ -43,6 +43,17 @@ export function DocumentsPage({
     )
   }, [documents, query])
 
+  // Encoding every document's content to measure its byte size is wasted
+  // work if it reruns on every render (e.g. just opening a document's menu
+  // re-renders this whole list) — computed once per actual `documents` change.
+  const fileSizeById = useMemo(() => {
+    const sizes = new Map<string, string>()
+    for (const document of documents) {
+      sizes.set(document.id, formatFileSize(new TextEncoder().encode(document.content).length))
+    }
+    return sizes
+  }, [documents])
+
   function openSearch() {
     setIsSearchOpen(true)
   }
@@ -222,8 +233,7 @@ export function DocumentsPage({
                   )}
                 </div>
                 <p className="truncate text-sm text-text-secondary">
-                  {formatDateTime(document.updatedAt)} -{' '}
-                  {formatFileSize(new TextEncoder().encode(document.content).length)}
+                  {formatDateTime(document.updatedAt)} - {fileSizeById.get(document.id)}
                 </p>
               </button>
 

@@ -91,7 +91,7 @@ Sin router: navegación con estado local de React — ver justificación en secc
 
 ### PWA
 
-- `vite-plugin-pwa` — genera el manifest (`manifest.webmanifest`) e inyecta el `<link>` automáticamente, en vez de escribirlo a mano. Configurado sin service worker activo (`injectRegister: null`), solo para habilitar instalabilidad.
+- `vite-plugin-pwa` — genera el manifest (`manifest.webmanifest`) e inyecta el `<link>` automáticamente, en vez de escribirlo a mano. Configurado sin service worker activo (`injectRegister: null`), solo para habilitar instalabilidad. La estrategia por defecto del plugin (`generateSW`) igual construye un `sw.js` con manifest de precache de todos los assets (~1 MB) aunque nunca se registre — inofensivo mientras siga sin registrarse, pero quedaría cacheando ~1 MB en el dispositivo si algún cambio futuro llegara a registrarlo por error. Se vació explícitamente (`workbox.globPatterns: []`) para que ese service worker dormido no pueda precachear nada.
 
 ### Editor
 
@@ -294,7 +294,7 @@ Capas:
 
 - **UI (React):** `DocumentsPage` (lista) y `DocumentEditor` (editor/preview). No acceden a `idb` directamente, solo a `documentRepository` a través de hooks.
 - **Navegación:** estado local en el componente raíz (`vista actual: 'list' | 'editor'` + `id` del documento seleccionado). Ver sección 8.
-- **documentRepository:** única capa que conoce `idb`. Expone la API de la sección 7. Punto de extensión futuro para agregar un backend remoto (sección 19) sin tocar la UI.
+- **documentRepository:** única capa que conoce `idb`. Expone la API de la sección 7. Punto de extensión futuro para agregar un backend remoto sin tocar la UI.
 - **Persistencia:** IndexedDB vía `idb`, base `markdown-space`, store `documents`.
 - **Hosting:** Cloudflare Pages sirviendo el build de Vite; sin lógica de servidor en V1.
 
@@ -429,42 +429,40 @@ El renombrado se realiza exclusivamente desde el nombre editable dentro del edit
 
 ### Mobile-first
 
-Header:
+Header (una sola fila; Undo/Redo solo aparecen en modo Editor):
 
 ```text
-←    README.md            👁  ⋮
+←    README.md       ↶  ↷  👁  ⋮
      Guardado
 ```
 
-Fila de acciones (solo visible en modo Editor, justo debajo del header):
+Undo/Redo viven dentro de la fila del header en vez de en una barra aparte, para no restarle altura útil al área de escritura en pantallas de celular pequeñas — el nombre del archivo (`truncate`) es lo que cede espacio cuando hace falta, nunca los botones (todos se mantienen en 44px, el tamaño táctil de referencia de toda la app). Ambos se deshabilitan (opacidad reducida, sin respuesta al tap) cuando no hay nada que deshacer/rehacer. Vista previa/Editar y el menú `⋮` van al final de la fila porque son acciones menos frecuentes que Undo/Redo.
 
-```text
-↶    ↷
-```
-
-Área principal:
+Área principal — un único contenedor con scroll (CodeMirror o Vista previa, a altura natural/creciente, no fija) seguido de un pie con la versión de la app:
 
 ```text
 CodeMirror
+...
+v{versión}
 ```
 
-No hay barra inferior: Undo/Redo se movieron del pie de pantalla a una fila angosta debajo del header, para no restarle altura útil al área de escritura en pantallas de celular pequeñas. Vista previa/Editar se ubica en el header (junto al ⋮) porque es un cambio de "modo" (como en GitHub/iA Writer), mientras que Undo/Redo son acciones frecuentes de edición y quedan siempre visibles arriba, sin competir con el teclado virtual. Ambos botones se deshabilitan (opacidad reducida, sin respuesta al tap) cuando no hay nada que deshacer/rehacer.
+El pie con la versión **no está fijo**: es el último elemento dentro del mismo contenedor que scrollea el contenido, así que solo se ve al llegar al final real del documento — no le resta altura visible al área de escritura mientras se edita. CodeMirror se configura a altura automática (crece con el contenido) en vez de altura fija con scroll interno propio; el contenedor que lo envuelve es el único que scrollea. CodeMirror sigue virtualizando correctamente las líneas fuera de pantalla en este modo (detecta el contenedor scrolleable externo) — verificado con un documento sintético de 20 000 líneas, sin degradación.
 
-El área de contenido reserva su propio padding inferior con `env(safe-area-inset-bottom)`, ya que no existe una barra inferior que absorba el safe area del home indicator de iOS.
-
-El menú `⋮` del header contiene (las primeras tres filas solo visibles en modo Editor; ninguna aplica en Vista previa):
+El menú `⋮` del header contiene (las primeras cuatro filas solo visibles en modo Editor; ninguna aplica en Vista previa):
 
 - Mostrar/Ocultar números de línea (sección 12)
 - Tamaño de fuente del editor (sección 12) — botones `−`/`+`, valor actual en el medio.
 - Tema del editor (sección 13) — tres opciones seleccionables en una fila.
 - Reset settings — vuelve las tres preferencias anteriores a sus valores por defecto.
-- v{versión} (línea informativa, no interactiva)
+- v{versión} (línea informativa, no interactiva) — se muestra también acá, además del pie de página, porque el pie solo es visible tras scrollear hasta el final.
 
-El padding izquierdo del área de contenido (`.cm-content`) es menor que el resto (8px vs. 16px), para que el texto aproveche más el ancho disponible en pantallas angostas.
+El padding horizontal del área de contenido (`.cm-content`) y el del gutter de números de línea se mantienen deliberadamente angostos (ver `editorTheme.ts`), para que el texto aproveche más el ancho disponible en pantallas angostas.
 
-Header y fila de acciones deben permanecer fijos siempre; solo el área de contenido (CodeMirror o Vista previa) scrollea internamente, sin importar qué tan largo sea el documento (el contenedor raíz usa `h-svh`, no `min-h-svh`, para que el scroll quede acotado al área de contenido).
+El header permanece fijo siempre — no solo porque está fuera del contenedor que scrollea, sino porque `html`/`body` tienen `overflow: hidden` + `overscroll-behavior: none` (sección 14), lo que evita además el rebote elástico (bounce) de iOS Safari al arrastrar más allá del contenido.
 
 Las líneas largas hacen ajuste automático (`line wrapping`) dentro del ancho visible del editor — no hay scroll horizontal ni límite de longitud de línea.
+
+El color de fondo de la selección de texto usa los valores reales de VS Code (`editor.selectionBackground` `#264f78` con foco, `editor.inactiveSelectionBackground` `#3a3d41` sin foco — verificados en el código fuente de `microsoft/vscode`, no adivinados), aplicados con `!important`: la regla base de CodeMirror para el estado con foco es más específica que una regla propia sin ese calificador, así que la ganaba por defecto y la selección quedaba casi invisible.
 
 ### Preview
 
@@ -478,7 +476,7 @@ No habrá split view.
 
 Al abrir un documento, siempre se iniciará en modo Editor.
 
-La posición del cursor se persiste por documento (localStorage, clave por `documentId`) en cada cambio de selección, y se restaura — junto con el scroll hacia esa posición — al reabrir el documento, incluso después de volver a la lista o recargar la app. El scroll se dispara desde `onCreateEditor` (no desde un `useEffect` de montaje), que corre exactamente cuando CodeMirror termina de crear su `EditorView` — evita una condición de carrera en la que el efecto podía ejecutarse antes de que el editor existiera, dejando el documento abierto siempre desde el principio en vez de la última posición.
+La posición del cursor se persiste por documento (localStorage, clave por `documentId`) en cada cambio de selección, y se restaura — junto con el scroll hacia esa posición — al reabrir el documento, incluso después de volver a la lista o recargar la app. El scroll se dispara desde `onCreateEditor` (no desde un `useEffect` de montaje), que corre exactamente cuando CodeMirror termina de crear su `EditorView` — evita una condición de carrera en la que el efecto podía ejecutarse antes de que el editor existiera, dejando el documento abierto siempre desde el principio en vez de la última posición. Al eliminar un documento, su entrada de cursor en localStorage se borra junto con él (`App.tsx`) — de lo contrario quedaba huérfana para siempre, un descuido detectado en una auditoría de memoria/almacenamiento (confirmado en la práctica: tras varias pruebas de crear/borrar, había 7 claves de cursor acumuladas para un solo documento real).
 
 ---
 
@@ -596,12 +594,13 @@ El identificador de lenguaje después de las backticks (ej. "json" en ` ```json 
 - Respetar `env(safe-area-inset-bottom)` en iPhone.
 - Mostrar feedback discreto de guardado y errores.
 - Usar modal únicamente para acciones destructivas.
+- Sin rebote elástico (bounce) de página completa en iOS Safari: `html`/`body` usan `overflow: hidden` + `overscroll-behavior: none` (`index.css`), porque cada pantalla ya maneja su propio scroll interno — sin esto, arrastrar más allá del contenido movía visualmente hasta el header, aunque este nunca perdía su posición real en el layout.
 
 ---
 
 # 15. Historial de implementación
 
-La V1 se construyó en 10 fases, todas completadas y publicadas (sección 21). El detalle de QUÉ hace cada parte ya vive en las secciones de producto correspondientes (4–14), no acá — esto es solo un resumen de CÓMO se llegó, para no perder trazabilidad.
+La V1 se construyó en 10 fases, todas completadas y publicadas. El detalle de QUÉ hace cada parte ya vive en las secciones de producto correspondientes (4–14), no acá — esto es solo un resumen de CÓMO se llegó, para no perder trazabilidad.
 
 1. **Bootstrap** — scaffold oficial de Cloudflare (`npm create cloudflare@latest -- markdown-space --framework=react --platform=pages`, React + TypeScript + Pages + Oxlint + Node 24), Tailwind y Lucide agregados después.
 2. **Persistencia** — `idb` + `documentRepository` (sección 4, 7).
@@ -683,40 +682,6 @@ Debe evitar:
 `react-markdown` no renderiza HTML embebido por defecto, por lo que importar archivos `.md` de terceros es seguro en V1. Restricción permanente: no agregar el plugin `rehype-raw` (habilita HTML embebido) sin combinarlo con `rehype-sanitize` o DOMPurify — de lo contrario un `.md` importado con `<script>` o atributos `on*` podría ejecutar JS en el contexto de la app (acceso a IndexedDB/localStorage del usuario).
 
 ---
-
-# 19. Evolución futura — Sincronización entre dispositivos
-
-La arquitectura (sección 6) ya desacopla la UI de `idb` a través de `documentRepository`, precisamente para permitir esto sin reescribir el frontend: `documentRepository` ganaría una rama hacia una API remota, en paralelo a IndexedDB.
-
-```text
-                    React
-                      │
-              DocumentRepository
-                 ┌────┴────┐
-                 │         │
-                 ▼         ▼
-             IndexedDB   API → Cloudflare Worker → Auth0 (identidad) + D1 (almacenamiento remoto)
-```
-
-- **IndexedDB** seguiría como copia local de acceso rápido.
-- **Cloudflare Worker** haría de API: validación de usuario, lectura/escritura remota, reglas de sincronización.
-- **Auth0** cubriría autenticación e identidad.
-- **D1** almacenaría documentos y metadatos de sincronización.
-
-Queda por definir en su momento: estrategia de conflictos, versión de documentos, timestamps remotos, comportamiento offline, origen de verdad. Nada de esto forma parte de la V1.
-
----
-
-## 20. Primera iteración técnica
-
-Flujo base (crear → editar → autoguardar en IndexedDB → recargar → persiste → descargar) validado en móvil desde el inicio del proyecto; sigue siendo el camino crítico que cualquier cambio futuro no debe romper.
-
----
-
-## 21. Estado actual del proyecto
-
-Repositorio: `github.com/alexjcm/markdown-space`. Stack y hosting: ver sección 3. V1 ya publicada en `https://markdown-space-7mr.pages.dev`.
-
 
 # Referencias:
 
