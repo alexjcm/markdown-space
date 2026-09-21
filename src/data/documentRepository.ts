@@ -43,9 +43,9 @@ async function existsByName(name: string, excludeId?: string): Promise<boolean> 
 }
 
 /**
- * Devuelve `baseName` si está libre; si no, agrega "-2", "-3"... antes de la
- * extensión hasta encontrar el primer nombre disponible (rellena huecos).
- * Usado tanto para `untitled.md` (creación) como para nombres importados.
+ * Returns `baseName` if it's free; otherwise appends "-2", "-3"... before the
+ * extension until it finds the first available name (fills in gaps).
+ * Used both for `untitled.md` (creation) and for imported names.
  */
 async function getNextAvailableName(baseName: string): Promise<string> {
   const db = await getDb()

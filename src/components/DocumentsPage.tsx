@@ -1,7 +1,8 @@
-import { MoreVertical, Plus, Upload, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { MoreVertical, Plus, Search, Upload, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MarkdownDocument } from '../types/document'
-import { relativeTime } from '../utils/relativeTime'
+import { formatDateTime } from '../utils/formatDateTime'
+import { formatFileSize } from '../utils/formatFileSize'
 
 interface DocumentsPageProps {
   documents: MarkdownDocument[]
@@ -25,9 +26,43 @@ export function DocumentsPage({
   onDeleteRequest,
 }: DocumentsPageProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const firstMenuItemRef = useRef<HTMLButtonElement>(null)
   const lastFocusedRef = useRef<HTMLElement | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const filteredDocuments = useMemo(() => {
+    const trimmed = query.trim().toLowerCase()
+    if (!trimmed) return documents
+    return documents.filter(
+      (document) =>
+        document.name.toLowerCase().includes(trimmed) ||
+        document.content.toLowerCase().includes(trimmed),
+    )
+  }, [documents, query])
+
+  function openSearch() {
+    setIsSearchOpen(true)
+  }
+
+  function closeSearch() {
+    setIsSearchOpen(false)
+    setQuery('')
+  }
+
+  useEffect(() => {
+    if (!isSearchOpen) return
+    searchInputRef.current?.focus()
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeSearch()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSearchOpen])
 
   function openMenu(id: string) {
     lastFocusedRef.current = window.document.activeElement as HTMLElement | null
@@ -60,36 +95,71 @@ export function DocumentsPage({
   return (
     <div className="flex h-svh flex-col">
       <header
-        className="flex items-center justify-between border-b border-border px-4 pb-4"
+        className="flex items-center justify-between gap-2 border-b border-border px-4 pb-4"
         style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
       >
-        <h1 className="text-lg font-medium text-text-primary">Markdown Space</h1>
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".md,text/markdown"
-            multiple
-            className="hidden"
-            onChange={handleFileSelected}
-          />
-          <button
-            type="button"
-            aria-label="Importar documentos"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-accent hover:bg-surface"
-          >
-            <Upload className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            aria-label="Crear documento"
-            onClick={onCreate}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary hover:bg-surface"
-          >
-            <Plus className="h-6 w-6" />
-          </button>
-        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,text/markdown"
+          multiple
+          className="hidden"
+          onChange={handleFileSelected}
+        />
+        {isSearchOpen ? (
+          <>
+            <button
+              type="button"
+              aria-label="Close search"
+              onClick={closeSearch}
+              className="flex h-11 w-11 shrink-0 items-center justify-center text-text-secondary"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <input
+              ref={searchInputRef}
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search documents…"
+              className="h-11 min-w-0 flex-1 bg-transparent text-text-primary placeholder:text-text-secondary focus:outline-none"
+            />
+          </>
+        ) : (
+          <>
+            <h1 className="text-lg font-medium text-text-primary">Markdown Space</h1>
+            <div className="flex items-center gap-2">
+              {documents.length > 0 && (
+                <button
+                  type="button"
+                  aria-label="Search documents"
+                  onClick={openSearch}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary hover:bg-surface"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label="Import documents"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-accent hover:bg-surface"
+              >
+                <Upload className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                aria-label="Create document"
+                onClick={onCreate}
+                className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary hover:bg-surface"
+              >
+                <Plus className="h-6 w-6" />
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
       {importNotice && (
@@ -99,7 +169,7 @@ export function DocumentsPage({
           </p>
           <button
             type="button"
-            aria-label="Cerrar aviso"
+            aria-label="Dismiss notice"
             onClick={onDismissImportNotice}
             className="flex h-8 w-8 shrink-0 items-center justify-center text-text-secondary"
           >
@@ -110,28 +180,30 @@ export function DocumentsPage({
 
       {documents.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
-          <p className="text-text-primary">No hay documentos</p>
-          <p className="text-sm text-text-secondary">
-            Importá tus archivos Markdown existentes, o creá uno nuevo.
-          </p>
+          <p className="text-text-primary">No documents yet</p>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="h-11 rounded-md bg-accent px-6 text-white"
           >
-            Importar archivos
+            Import files
           </button>
           <button
             type="button"
             onClick={onCreate}
             className="text-sm text-text-secondary underline"
           >
-            Crear documento nuevo
+            Create new document
           </button>
+        </div>
+      ) : filteredDocuments.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <p className="text-text-primary">No results for "{query}"</p>
+          <p className="text-sm text-text-secondary">Try a different name or word from the content.</p>
         </div>
       ) : (
         <ul className="flex-1 divide-y divide-border overflow-y-auto">
-          {documents.map((document) => (
+          {filteredDocuments.map((document) => (
             <li key={document.id} className="relative flex items-center justify-between px-4">
               <button
                 type="button"
@@ -139,14 +211,15 @@ export function DocumentsPage({
                 className="flex-1 py-3 text-left"
               >
                 <p className="text-text-primary">{document.name}</p>
-                <p className="text-sm text-text-secondary">
-                  Editado {relativeTime(document.updatedAt)}
+                <p className="flex items-center justify-between gap-3 text-sm text-text-secondary">
+                  <span>{formatDateTime(document.updatedAt)}</span>
+                  <span>{formatFileSize(new TextEncoder().encode(document.content).length)}</span>
                 </p>
               </button>
 
               <button
                 type="button"
-                aria-label="Más opciones"
+                aria-label="More options"
                 aria-haspopup="menu"
                 aria-expanded={openMenuId === document.id}
                 onClick={() =>
@@ -161,7 +234,7 @@ export function DocumentsPage({
                 <>
                   <button
                     type="button"
-                    aria-label="Cerrar menú"
+                    aria-label="Close menu"
                     className="fixed inset-0 z-10 cursor-default"
                     onClick={closeMenu}
                   />
@@ -179,7 +252,7 @@ export function DocumentsPage({
                       }}
                       className="block w-full px-4 py-3 text-left text-text-primary hover:bg-editor-bg"
                     >
-                      Descargar .md
+                      Download .md
                     </button>
                     <button
                       type="button"
@@ -190,8 +263,11 @@ export function DocumentsPage({
                       }}
                       className="block w-full px-4 py-3 text-left text-danger hover:bg-editor-bg"
                     >
-                      Eliminar
+                      Delete
                     </button>
+                    <p className="border-t border-border px-4 py-2 text-xs text-text-secondary">
+                      v{__APP_VERSION__}
+                    </p>
                   </div>
                 </>
               )}

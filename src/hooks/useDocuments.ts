@@ -37,9 +37,9 @@ export function useDocuments() {
       const imported: MarkdownDocument[] = []
       let failedCount = 0
 
-      // Secuencial (no Promise.all): cada archivo debe ver los nombres ya
-      // usados por los anteriores del mismo lote para resolver duplicados bien
-      // (ej. dos archivos "readme.md" en el mismo lote -> readme.md, readme-2.md).
+      // Sequential (not Promise.all): each file must see the names already
+      // used by the previous ones in the same batch to resolve duplicates
+      // correctly (e.g. two "readme.md" files in the same batch -> readme.md, readme-2.md).
       for (const file of files) {
         try {
           const content = await file.text()
@@ -48,10 +48,10 @@ export function useDocuments() {
             id: crypto.randomUUID(),
             name,
             content,
-            // `createdAt` es cuándo se sumó a Markdown Space (no hay forma confiable de
-            // saber la fecha de creación real del archivo). `updatedAt` sí usa la fecha
-            // real de última modificación del archivo, para que "Editado hace X" y el
-            // orden de la lista reflejen la edición real, no el momento de importación.
+            // `createdAt` is when it was added to Markdown Space (there's no reliable
+            // way to know the file's real creation date). `updatedAt` does use the
+            // file's real last-modified date, so the displayed date and the list
+            // order reflect the actual edit, not the import moment.
             createdAt: Date.now(),
             updatedAt: file.lastModified || Date.now(),
           }

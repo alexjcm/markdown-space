@@ -1,32 +1,38 @@
-# React + TypeScript + Vite
+# Markdown Space
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Mobile-first web app to create, import, edit, preview and download Markdown (`.md`) files — for personal use, no backend or accounts, everything saved locally in the browser (IndexedDB).
 
-Currently, two official plugins are available:
+**Production:** https://markdown-space-7mr.pages.dev
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- React 19 + TypeScript + Vite
+- Tailwind CSS 4
+- CodeMirror 6 (via `@uiw/react-codemirror`) for the editor
+- `react-markdown` + `remark-gfm` for the preview
+- `idb` over IndexedDB for local persistence
+- `vite-plugin-pwa` for installability (no service worker or offline cache)
+- Cloudflare Pages for hosting, with Git integration (automatic deploy on every push to `main`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+See [`plan-implementacion.md`](./plan-implementacion.md) (in Spanish) for the full detail of product decisions, architecture and V1 scope.
 
-## Expanding the Oxlint configuration
+## Local development
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server (Vite) |
+| `npm run build` | Production build (`tsc -b && vite build`) |
+| `npm run test` | Unit tests (Vitest) |
+| `npm run lint` | Lint (Oxlint) |
+| `npm run deploy` | Alternative manual deploy (`wrangler pages deploy`) — usually not needed, deploy is automatic on every push to `main` |
+
+## Deployment
+
+The project is connected to Cloudflare Pages via Git: every push to `main` triggers an automatic build and deploy. No manual steps required.

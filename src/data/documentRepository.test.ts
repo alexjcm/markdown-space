@@ -21,31 +21,31 @@ beforeEach(async () => {
 })
 
 describe('documentRepository', () => {
-  it('crea y obtiene un documento por id', async () => {
+  it('creates and retrieves a document by id', async () => {
     const doc = makeDocument({ name: 'notes.md' })
     await documentRepository.create(doc)
 
     expect(await documentRepository.getById(doc.id)).toEqual(doc)
   })
 
-  it('lista todos los documentos', async () => {
+  it('lists all documents', async () => {
     await documentRepository.create(makeDocument({ name: 'a.md' }))
     await documentRepository.create(makeDocument({ name: 'b.md' }))
 
     expect(await documentRepository.getAll()).toHaveLength(2)
   })
 
-  it('actualiza un documento existente', async () => {
+  it('updates an existing document', async () => {
     const doc = makeDocument({ name: 'notes.md' })
     await documentRepository.create(doc)
 
-    const updated = { ...doc, content: 'hola', updatedAt: doc.updatedAt + 1000 }
+    const updated = { ...doc, content: 'hello', updatedAt: doc.updatedAt + 1000 }
     await documentRepository.update(updated)
 
-    expect((await documentRepository.getById(doc.id))?.content).toBe('hola')
+    expect((await documentRepository.getById(doc.id))?.content).toBe('hello')
   })
 
-  it('elimina un documento', async () => {
+  it('deletes a document', async () => {
     const doc = makeDocument()
     await documentRepository.create(doc)
     await documentRepository.delete(doc.id)
@@ -53,7 +53,7 @@ describe('documentRepository', () => {
     expect(await documentRepository.getById(doc.id)).toBeUndefined()
   })
 
-  it('existsByName es insensible a mayúsculas', async () => {
+  it('existsByName is case-insensitive', async () => {
     await documentRepository.create(makeDocument({ name: 'README.md' }))
 
     expect(await documentRepository.existsByName('readme.md')).toBe(true)
@@ -61,31 +61,31 @@ describe('documentRepository', () => {
     expect(await documentRepository.existsByName('other.md')).toBe(false)
   })
 
-  it('existsByName excluye al propio documento con excludeId', async () => {
+  it('existsByName excludes the document itself via excludeId', async () => {
     const doc = makeDocument({ name: 'README.md' })
     await documentRepository.create(doc)
 
     expect(await documentRepository.existsByName('readme.md', doc.id)).toBe(false)
   })
 
-  it('genera untitled.md como primer nombre disponible', async () => {
+  it('generates untitled.md as the first available name', async () => {
     expect(await documentRepository.getNextAvailableName('untitled.md')).toBe('untitled.md')
   })
 
-  it('rellena el hueco más bajo libre en los nombres untitled', async () => {
+  it('fills the lowest free gap in untitled names', async () => {
     await documentRepository.create(makeDocument({ name: 'untitled.md' }))
     await documentRepository.create(makeDocument({ name: 'untitled-3.md' }))
 
     expect(await documentRepository.getNextAvailableName('untitled.md')).toBe('untitled-2.md')
   })
 
-  it('genera nombres disponibles para una base arbitraria (importar)', async () => {
-    await documentRepository.create(makeDocument({ name: 'archivo.md' }))
+  it('generates available names for an arbitrary base (import)', async () => {
+    await documentRepository.create(makeDocument({ name: 'file.md' }))
 
-    expect(await documentRepository.getNextAvailableName('archivo.md')).toBe('archivo-2.md')
+    expect(await documentRepository.getNextAvailableName('file.md')).toBe('file-2.md')
   })
 
-  it('impide crear dos documentos con nombres duplicados (case-insensitive)', async () => {
+  it('prevents creating two documents with duplicate names (case-insensitive)', async () => {
     await documentRepository.create(makeDocument({ name: 'notes.md' }))
 
     await expect(documentRepository.create(makeDocument({ name: 'Notes.md' }))).rejects.toThrow()

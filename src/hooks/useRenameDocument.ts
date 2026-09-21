@@ -36,7 +36,7 @@ export function useRenameDocument({ document, onRenamed }: UseRenameDocumentOpti
 
     const trimmed = draft.trim()
     if (!trimmed) {
-      setError('El nombre no puede estar vacío.')
+      setError('Name cannot be empty.')
       return
     }
 
@@ -50,7 +50,7 @@ export function useRenameDocument({ document, onRenamed }: UseRenameDocumentOpti
 
     const isDuplicate = await documentRepository.existsByName(candidate, document.id)
     if (isDuplicate) {
-      setError('Ya existe un archivo con ese nombre.')
+      setError('A file with that name already exists.')
       return
     }
 

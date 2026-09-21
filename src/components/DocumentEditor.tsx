@@ -1,5 +1,6 @@
 import { markdown } from '@codemirror/lang-markdown'
 import { redo, redoDepth, undo, undoDepth } from '@codemirror/commands'
+import { EditorView } from '@codemirror/view'
 import CodeMirror, { type ReactCodeMirrorRef, type ViewUpdate } from '@uiw/react-codemirror'
 import { ArrowLeft, Eye, MoreVertical, Pencil, Redo2, Undo2 } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
@@ -7,10 +8,11 @@ import { useAutosave } from '../hooks/useAutosave'
 import { useLineNumbersPreference } from '../hooks/useLineNumbersPreference'
 import { useRenameDocument } from '../hooks/useRenameDocument'
 import type { MarkdownDocument } from '../types/document'
+import { getCursorPosition, saveCursorPosition } from '../utils/cursorPositionStorage'
 import { markdownEditorTheme } from './editorTheme'
 
-// react-markdown + remark-gfm solo se descargan al togglear Vista previa,
-// no al abrir el editor.
+// react-markdown + remark-gfm are only downloaded when toggling Preview,
+// not when opening the editor.
 const MarkdownPreview = lazy(() =>
   import('./MarkdownPreview').then((module) => ({ default: module.MarkdownPreview })),
 )
@@ -23,11 +25,11 @@ interface DocumentEditorProps {
 function statusLabel(status: ReturnType<typeof useAutosave>['status']): string | null {
   switch (status) {
     case 'saving':
-      return 'Guardando…'
+      return 'Saving…'
     case 'saved':
-      return 'Guardado'
+      return 'Saved'
     case 'error':
-      return 'Error al guardar'
+      return 'Error saving'
     default:
       return null
   }
@@ -45,6 +47,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
   const [name, setName] = useState(document?.name ?? '')
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [initialCursor] = useState(() => (document ? getCursorPosition(document.id) : undefined))
 
   const documentWithCurrentName = useMemo(
     () => (document ? { ...document, name } : undefined),
@@ -54,8 +57,8 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
   const rename = useRenameDocument({ document, onRenamed: setName })
 
   useEffect(() => {
-    // El blur que dispara la validación le quita el foco al input; si falló,
-    // se lo devolvemos para que el usuario pueda corregir sin otro tap/click.
+    // The blur that triggers validation removes focus from the input; if it
+    // failed, we give it back so the user can fix it without another tap/click.
     if (rename.error) renameInputRef.current?.focus()
   }, [rename.error])
 
@@ -81,20 +84,33 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMenuOpen])
 
+  useEffect(() => {
+    // When opening the document, centers the view on the position where the
+    // cursor last was, instead of always starting from the beginning.
+    if (initialCursor === undefined) return
+    const view = editorRef.current?.view
+    if (!view) return
+    const pos = Math.min(initialCursor, view.state.doc.length)
+    view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: 'center' }) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (!document) {
     return (
       <div className="flex h-svh flex-col items-center justify-center gap-4 px-6 text-center">
-        <p className="text-text-primary">Documento no encontrado</p>
+        <p className="text-text-primary">Document not found</p>
         <button
           type="button"
           onClick={onBack}
           className="h-11 rounded-md bg-accent px-6 text-white"
         >
-          Volver a la lista
+          Back to list
         </button>
       </div>
     )
   }
+
+  const documentId = document.id
 
   async function handleBack() {
     await flush()
@@ -114,6 +130,9 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
   function handleEditorUpdate(viewUpdate: ViewUpdate) {
     setCanUndo(undoDepth(viewUpdate.state) > 0)
     setCanRedo(redoDepth(viewUpdate.state) > 0)
+    if (viewUpdate.selectionSet) {
+      saveCursorPosition(documentId, viewUpdate.state.selection.main.head)
+    }
   }
 
   const label = statusLabel(status)
@@ -126,7 +145,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
       >
         <button
           type="button"
-          aria-label="Volver"
+          aria-label="Back"
           onClick={handleBack}
           className="flex h-11 w-11 items-center justify-center text-text-secondary"
         >
@@ -174,7 +193,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
                 {label}
                 {status === 'error' && (
                   <button type="button" onClick={() => flush()} className="underline">
-                    Reintentar
+                    Retry
                   </button>
                 )}
               </p>
@@ -184,7 +203,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
 
         <button
           type="button"
-          aria-label={mode === 'editor' ? 'Vista previa' : 'Editar'}
+          aria-label={mode === 'editor' ? 'Preview' : 'Edit'}
           onClick={() => setMode(mode === 'editor' ? 'preview' : 'editor')}
           className="flex h-11 w-11 items-center justify-center rounded-full text-text-secondary hover:bg-surface"
         >
@@ -193,7 +212,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
 
         <button
           type="button"
-          aria-label="Más opciones"
+          aria-label="More options"
           aria-haspopup="menu"
           aria-expanded={isMenuOpen}
           onClick={() => (isMenuOpen ? closeMenu() : openMenu())}
@@ -206,7 +225,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
           <>
             <button
               type="button"
-              aria-label="Cerrar menú"
+              aria-label="Close menu"
               className="fixed inset-0 z-10 cursor-default"
               onClick={closeMenu}
             />
@@ -225,12 +244,38 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
                 }}
                 className="block w-full px-4 py-3 text-left text-text-primary hover:bg-editor-bg"
               >
-                {showLineNumbers ? 'Ocultar números de línea' : 'Mostrar números de línea'}
+                {showLineNumbers ? 'Hide line numbers' : 'Show line numbers'}
               </button>
+              <p className="border-t border-border px-4 py-2 text-xs text-text-secondary">
+                v{__APP_VERSION__}
+              </p>
             </div>
           </>
         )}
       </header>
+
+      {mode === 'editor' && (
+        <div className="flex items-center gap-1 border-b border-border px-2 py-1">
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            aria-label="Undo"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
+          >
+            <Undo2 className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={handleRedo}
+            disabled={!canRedo}
+            aria-label="Redo"
+            className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
+          >
+            <Redo2 className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1">
         {mode === 'editor' ? (
@@ -240,11 +285,16 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
             onChange={setContent}
             onUpdate={handleEditorUpdate}
             theme={markdownEditorTheme}
-            extensions={[markdown({ addKeymap: false })]}
+            extensions={[markdown({ addKeymap: false }), EditorView.lineWrapping]}
             basicSetup={{
               lineNumbers: showLineNumbers,
               foldGutter: false,
             }}
+            selection={
+              initialCursor !== undefined
+                ? { anchor: Math.min(initialCursor, content.length) }
+                : undefined
+            }
             height="100%"
             className="h-full"
           />
@@ -252,7 +302,7 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
           <Suspense
             fallback={
               <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-text-secondary">Cargando vista previa…</p>
+                <p className="text-sm text-text-secondary">Loading preview…</p>
               </div>
             }
           >
@@ -260,32 +310,6 @@ export function DocumentEditor({ document, onBack }: DocumentEditorProps) {
           </Suspense>
         )}
       </div>
-
-      {mode === 'editor' && (
-        <div
-          className="flex items-center justify-center gap-2 border-t border-border px-4 py-2"
-          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-        >
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={!canUndo}
-            aria-label="Deshacer"
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
-          >
-            <Undo2 className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            onClick={handleRedo}
-            disabled={!canRedo}
-            aria-label="Rehacer"
-            className="flex h-11 w-11 items-center justify-center rounded-md text-text-secondary hover:bg-surface disabled:pointer-events-none disabled:opacity-30"
-          >
-            <Redo2 className="h-5 w-5" />
-          </button>
-        </div>
-      )}
     </div>
   )
 }

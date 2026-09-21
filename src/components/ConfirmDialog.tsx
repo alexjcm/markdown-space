@@ -60,7 +60,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="h-11 rounded-md px-4 text-text-secondary hover:bg-editor-bg"
           >
-            Cancelar
+            Cancel
           </button>
           <button
             type="button"

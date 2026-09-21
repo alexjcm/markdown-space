@@ -13,8 +13,10 @@ La V1 será de uso personal y priorizará:
 - Excelente uso desde móvil.
 - Pocas dependencias.
 - Tecnologías actuales y ligeras.
-- Evitar APIs, paquetes o patrones deprecados u obsoletos; preferir siempre la alternativa vigente y mantenida (ej. `@codemirror/commands` en vez de `@codemirror/history`, `wrangler deploy` en vez de `wrangler pages deploy`).
+- Evitar APIs, paquetes o patrones deprecados u obsoletos; preferir siempre la alternativa vigente y mantenida (ej. `@codemirror/commands` en vez del paquete obsoleto `@codemirror/history`).
 - Arquitectura preparada para evolucionar a sincronización entre dispositivos.
+
+**Idioma:** la interfaz de la app, el código fuente y sus comentarios están en inglés. Este documento de plan es la única excepción y permanece en español.
 
 ---
 
@@ -56,7 +58,7 @@ La V1 será de uso personal y priorizará:
 - Autenticación.
 - Backend.
 - Sincronización entre dispositivos.
-- Cloudflare Workers con lógica de backend/API propia (la V1 sí corre sobre el runtime de Workers, pero solo como hosting de archivos estáticos vía Workers Static Assets — ver sección 3).
+- Cloudflare Workers con lógica de backend/API propia (la V1 usa Cloudflare Pages solo como hosting de archivos estáticos — ver sección 3).
 - Cloudflare D1.
 - PWA completa con service worker / funcionamiento offline (solo se incluye la instalabilidad mínima, ver sección "Incluido").
 - Imágenes en Markdown.
@@ -64,7 +66,7 @@ La V1 será de uso personal y priorizará:
 - Búsqueda de documentos.
 - Integraciones externas.
 - Historial de versiones.
-- GitHub Flavored Markdown, excepto tablas (ver sección "Markdown" más abajo — el 44% de los documentos reales del usuario usa tablas, así que sí se soportan en la vista previa vía `remark-gfm`).
+- GitHub Flavored Markdown, excepto tablas — ver sección 3, "Markdown".
 
 ---
 
@@ -84,7 +86,7 @@ La V1 será de uso personal y priorizará:
 - Tailwind CSS 4 (vía `@tailwindcss/vite`, el plugin oficial — versión más nueva disponible; confirmado viable con Vite 8 + React 19 en el workspace `dmc`).
 - Lucide React
 
-Sin router: la navegación entre la lista de documentos y el editor se maneja con estado local de React (ver sección 8). Se descarta React Router por bajo valor para solo 2 vistas, dado que la app se usará mayormente instalada en pantalla de inicio (sin barra de URL visible) y sin necesidad de compartir enlaces a documentos específicos.
+Sin router: navegación con estado local de React — ver justificación en sección 8.
 
 ### PWA
 
@@ -92,7 +94,7 @@ Sin router: la navegación entre la lista de documentos y el editor se maneja co
 
 ### Editor
 
-- CodeMirror 6, vía el wrapper `@uiw/react-codemirror` (simplifica la integración con refs/efectos de React; verificar `peerDependencies` con React 19 al instalar).
+- CodeMirror 6, vía el wrapper `@uiw/react-codemirror` (simplifica la integración con refs/efectos de React).
 - `@codemirror/lang-markdown` (sintaxis Markdown).
 - `@codemirror/commands` (undo/redo — el historial vive aquí, no en el paquete obsoleto `@codemirror/history`).
 - Tema dark custom vía `EditorView.theme()` + `HighlightStyle` (el paquete oficial `@codemirror/theme-one-dark` usa una paleta fija distinta a la definida en la sección 13, no sirve tal cual).
@@ -128,11 +130,11 @@ Decisión revisada tras analizar una muestra real de 43 documentos del usuario (
 
 ### Hosting
 
-- Cloudflare Workers (Static Assets) — reemplaza al scaffold inicial en Cloudflare Pages, que Cloudflare ya no recomienda como opción por defecto para proyectos nuevos.
+- **Cloudflare Pages.** No deprecado, solo no es la opción por defecto para proyectos nuevos — para una app 100% estática sin bindings no hay diferencia funcional real frente a Workers Static Assets (que se evaluó y descartó por fricción práctica en el despliegue).
 
-La V1 no requiere backend ni lógica de servidor: Workers Static Assets solo sirve los archivos estáticos generados por Vite, igual que hacía Pages. Pendiente migrar `wrangler.jsonc` (de `pages_build_output_dir` a `assets.directory`) y los scripts de `package.json` (de `wrangler pages dev/deploy` a `wrangler dev/deploy`) — ver Fase 0.
+La V1 no requiere backend ni lógica de servidor: Pages solo sirve los archivos estáticos generados por Vite.
 
-El despliegue real a producción (`wrangler deploy`) se realiza recién cuando la app esté completa y probada (Fases 0–9 terminadas, incluida la validación mobile de la Fase 8) — ver Fase 10. Durante el desarrollo solo se usa entorno local (`vite dev` / `wrangler dev`), sin publicar versiones intermedias.
+El despliegue a producción ocurre automáticamente vía la integración de Cloudflare Pages con GitHub (push a `main` → build y deploy automático) — ver Fase 10. También existe `npm run deploy` (`wrangler pages deploy`) como alternativa manual.
 
 ---
 
@@ -213,11 +215,7 @@ Reglas:
 
 ### Importar
 
-**Decisión revisada:** el flujo más común de uso de la app es cargar archivos `.md` ya existentes (no crear desde cero) — confirmado por el usuario tras el análisis de una muestra real de 43 documentos. Esto cambia varias decisiones de UX respecto a la versión inicial del plan:
-
-- **Selección múltiple**, no solo un archivo a la vez (`<input type="file" multiple>`).
-- **Importar es la acción visualmente prominente** del header de la lista (ícono con color de acento); "Crear documento" (+) pasa a ser la acción secundaria (gris).
-- El **empty state** invita primero a importar ("Importá tus archivos Markdown existentes, o creá uno nuevo." + botón primario "Importar archivos"), con "Crear documento nuevo" como link secundario debajo.
+El flujo más común de uso de la app es cargar archivos `.md` ya existentes, no crear desde cero — por eso importar acepta selección múltiple y es la acción visualmente prominente de la lista (ver mockups y empty state en sección 9).
 
 Flujo:
 
@@ -310,23 +308,22 @@ Capas:
 - **Navegación:** estado local en el componente raíz (`vista actual: 'list' | 'editor'` + `id` del documento seleccionado). Ver sección 8.
 - **documentRepository:** única capa que conoce `idb`. Expone la API de la sección 7. Punto de extensión futuro para agregar un backend remoto (sección 19) sin tocar la UI.
 - **Persistencia:** IndexedDB vía `idb`, base `markdown-space`, store `documents`.
-- **Hosting:** Cloudflare Workers (Static Assets) sirviendo el build de Vite; sin lógica de servidor en V1.
+- **Hosting:** Cloudflare Pages sirviendo el build de Vite; sin lógica de servidor en V1.
 
 ### Rendimiento — code-splitting
 
-CodeMirror y `react-markdown`/`remark-gfm` son, con diferencia, las dependencias más pesadas del bundle (confirmado: sin dividir, el JS inicial pesaba ~334KB gzip). Como la lista de documentos no necesita ninguna de las dos, se dividió el bundle en 3 niveles con `React.lazy()` + `Suspense`:
+CodeMirror y `react-markdown`/`remark-gfm` son, con diferencia, las dependencias más pesadas del bundle. Como la lista de documentos no necesita ninguna de las dos, el bundle se divide en 3 niveles con `React.lazy()` + `Suspense`:
 
 ```text
-chunk principal (lista de documentos)         ~75KB gzip
+chunk principal (lista de documentos)
   ↓ (al abrir un documento)
-chunk DocumentEditor (CodeMirror)             ~214KB gzip
+chunk DocumentEditor (CodeMirror)
   ↓ (al togglear Vista previa)
-chunk MarkdownPreview (react-markdown + gfm)   ~46KB gzip
+chunk MarkdownPreview (react-markdown + gfm)
 ```
 
 - `App.tsx` carga `DocumentEditor` con `lazy(() => import(...))`, con un `Suspense` fallback ("Cargando editor…").
 - `DocumentEditor.tsx` a su vez carga `MarkdownPreview` de la misma forma, con su propio fallback ("Cargando vista previa…").
-- Verificado en el build de producción (`vite preview`) que cada chunk se descarga únicamente en el momento correspondiente, no antes.
 
 ---
 
@@ -405,19 +402,19 @@ Si el `documentId` guardado ya no existe (fue eliminado):
 Header:
 
 ```text
-Markdown Space              ⬆  +
+Markdown Space           🔍  ⬆  +
 ```
 
-`⬆` (Importar) es la acción prominente (acento); `+` (Crear) es secundaria (gris) — ver justificación en la sección 5, "Importar".
+`⬆` (Importar) es la acción prominente (acento); `+` (Crear) es secundaria (gris) — ver justificación en la sección 5, "Importar". `🔍` (Buscar) solo se muestra si hay al menos un documento; al tocarlo, reemplaza el título y los íconos por una barra de búsqueda (ver "Búsqueda", más abajo) — no ocupa espacio cuando no se usa.
 
-Lista:
+Lista, ordenada por fecha de edición descendente. Debajo del nombre se muestra fecha y hora exactas de la última edición (izquierda) y el peso del archivo en KB/MB (derecha) — se prefirió sobre tiempo relativo ("hace 2 min") porque el flujo más común es importar `.md` existentes, donde la fecha exacta y el tamaño ayudan a reconocer el archivo correcto entre varios similares:
 
 ```text
-README.md
-Editado hace 2 min             ⋮
+README.md                                     ⋮
+20/09/2026, 20:32                       12.4 KB
 
-notes.md
-Editado ayer                   ⋮
+notes.md                                      ⋮
+19/09/2026, 08:15                        3.1 KB
 ```
 
 ### Empty state
@@ -425,21 +422,27 @@ Editado ayer                   ⋮
 ```text
 No hay documentos
 
-Importá tus archivos Markdown
-existentes, o creá uno nuevo.
-
 [ Importar archivos ]
   Crear documento nuevo
 ```
 
-"Importar archivos" es el botón primario (acento); "Crear documento nuevo" es un link secundario debajo.
+"Importar archivos" es el botón primario (acento); "Crear documento nuevo" es un link secundario debajo. Sin subtítulo explicativo: "No hay documentos" junto a ambos botones ya es autoexplicativo.
+
+### Búsqueda
+
+Al tocar `🔍` en el header, se reemplaza por una barra de búsqueda (`✕` para cerrar + input, con foco automático); `Escape` también cierra. Filtra la lista en tiempo real (sin botón de buscar) por coincidencia parcial, insensible a mayúsculas, tanto en el **nombre** del archivo como en su **contenido** — como el contenido ya está cargado en memoria (sección 7), es un filtro directo sobre el array, sin costo ni índice adicional.
+
+Si no hay coincidencias, se muestra "No results for "{query}"" en vez de la lista, sin perder la barra de búsqueda (para poder ajustar la consulta). Al cerrar la búsqueda, la consulta se limpia — reabrir siempre empieza en blanco.
 
 ### Menú de documento
 
 - Descargar `.md`
 - Eliminar
+- v{versión} (línea informativa, no interactiva, al final del menú)
 
 El renombrado se realiza exclusivamente desde el nombre editable dentro del editor (sección 11) — no se agrega una opción de renombrar en este menú, para mantener un único punto de validación de nombres/duplicados en vez de duplicar esa lógica en dos lugares. Es el enfoque más simple: una sola ruta de edición de nombre, un solo lugar donde se valida "vacío" y "duplicado".
+
+La versión mostrada viene de `package.json` (inyectada en build time vía `define` de Vite), para no duplicar ese dato a mano en el código fuente. Se repite en este menú y en el menú de opciones del editor (sección 10) — ambos son los únicos puntos "⋮" de la app, y no existe una pantalla dedicada de Ajustes/Acerca de. Sin el prefijo "Markdown Space": el nombre de la app ya está en el header, repetirlo en el menú es redundante.
 
 ---
 
@@ -454,23 +457,30 @@ Header:
      Guardado
 ```
 
+Fila de acciones (solo visible en modo Editor, justo debajo del header):
+
+```text
+↶    ↷
+```
+
 Área principal:
 
 ```text
 CodeMirror
 ```
 
-Acciones (solo visibles en modo Editor; en modo Vista previa no hay barra inferior, el contenido ocupa toda la pantalla):
+No hay barra inferior: Undo/Redo se movieron del pie de pantalla a una fila angosta debajo del header, para no restarle altura útil al área de escritura en pantallas de celular pequeñas. Vista previa/Editar se ubica en el header (junto al ⋮) porque es un cambio de "modo" (como en GitHub/iA Writer), mientras que Undo/Redo son acciones frecuentes de edición y quedan siempre visibles arriba, sin competir con el teclado virtual. Ambos botones se deshabilitan (opacidad reducida, sin respuesta al tap) cuando no hay nada que deshacer/rehacer.
 
-```text
-Undo    Redo
-```
+El área de contenido reserva su propio padding inferior con `env(safe-area-inset-bottom)`, ya que no existe una barra inferior que absorba el safe area del home indicator de iOS.
 
-Vista previa/Editar se decidió ubicar en el header (junto al ⋮) en vez de la barra inferior — es un cambio de "modo" (como en GitHub/iA Writer), mientras que Undo/Redo son acciones frecuentes de edición y se quedan pegadas arriba del teclado virtual (mismo patrón que iOS Notes/Gmail), agrupadas y centradas en vez de repartidas en todo el ancho.
+El menú `⋮` del header contiene:
 
-La barra inferior debe respetar las safe areas de iOS. Cuando no hay barra inferior (modo Vista previa), el área de contenido respeta el safe-area inferior por sí misma.
+- Mostrar/Ocultar números de línea (sección 12)
+- v{versión} (línea informativa, no interactiva)
 
-Header y barra inferior deben permanecer fijos siempre; solo el área de contenido (CodeMirror o Vista previa) scrollea internamente, sin importar qué tan largo sea el documento. (Detectado como bug real en un documento largo de prueba: el contenedor raíz usaba `min-h-svh` en vez de `h-svh`, lo que dejaba crecer toda la página en vez de acotar el scroll al área de contenido — corregido.)
+Header y fila de acciones deben permanecer fijos siempre; solo el área de contenido (CodeMirror o Vista previa) scrollea internamente, sin importar qué tan largo sea el documento (el contenedor raíz usa `h-svh`, no `min-h-svh`, para que el scroll quede acotado al área de contenido).
+
+Las líneas largas hacen ajuste automático (`line wrapping`) dentro del ancho visible del editor — no hay scroll horizontal ni límite de longitud de línea.
 
 ### Preview
 
@@ -484,11 +494,7 @@ No habrá split view.
 
 Al abrir un documento, siempre se iniciará en modo Editor.
 
-Cuando sea posible, deben conservarse:
-
-- posición de scroll;
-- posición del cursor;
-- estado del documento.
+La posición del cursor se persiste por documento (localStorage, clave por `documentId`) en cada cambio de selección, y se restaura — junto con el scroll hacia esa posición — al reabrir el documento, incluso después de volver a la lista o recargar la app.
 
 ---
 
@@ -623,11 +629,11 @@ Pendiente dentro de esta fase:
 - Configurar Tailwind CSS 4 (`@tailwindcss/vite`).
 - Instalar Lucide React.
 - Eliminar el contenido demo del scaffold (`App.css`, contador, `hero.png`, links a Vite/React).
-- Migrar hosting de Cloudflare Pages a Workers Static Assets: actualizar `wrangler.jsonc` (`assets.directory` en vez de `pages_build_output_dir`) y los scripts de `package.json` (`wrangler dev` / `wrangler deploy` en vez de `wrangler pages dev` / `wrangler pages deploy`).
+- Hosting: se mantiene Cloudflare Pages, tal como lo dejó el scaffold inicial (no requiere migración — ver historial de la decisión en la sección "Hosting").
 - Crear la estructura inicial de carpetas.
 - Crear/conectar el repositorio remoto `markdown-space` si aún no está asociado.
 
-**Resultado esperado:** aplicación base funcionando localmente, con el hosting ya migrado de Cloudflare Pages (scaffold inicial) a Cloudflare Workers (Static Assets).
+**Resultado esperado:** aplicación base funcionando localmente, con el scaffold oficial de Cloudflare Pages.
 
 ---
 
@@ -795,14 +801,15 @@ Revisar:
 
 ## Fase 10 — Despliegue
 
-Se ejecuta al final, únicamente cuando la app esté lista y probada (Fases 0–9 completas, incluida la validación mobile de la Fase 8). No se despliega en producción durante el desarrollo.
+Se ejecuta al final, únicamente cuando la app esté lista y probada (Fases 0–9 completas, incluida la validación mobile de la Fase 8).
 
-- Confirmar que `wrangler.jsonc` esté migrado a Workers Static Assets (`assets.directory`, sin `pages_build_output_dir`).
-- Ejecutar `npm run build`.
-- Desplegar con `wrangler deploy`.
-- Verificar la app publicada en Cloudflare Workers (Static Assets): carga, persistencia en IndexedDB, instalación PWA mínima.
+**Mecanismo real:** Cloudflare Pages con integración de Git — el proyecto quedó conectado al repositorio de GitHub (`alexjcm/markdown-space`) desde el dashboard de Cloudflare. Cada push a `main` dispara un build y deploy automático (framework preset detectado, build output directory `dist`). No hace falta correr nada manualmente para desplegar.
 
-**Resultado:** V1 publicada en Cloudflare Workers (Static Assets).
+- Alternativa manual disponible si hace falta: `npm run deploy` (`wrangler pages deploy`).
+- Verificar la app publicada: carga, persistencia en IndexedDB, instalación PWA mínima.
+- URL de producción: `https://markdown-space-7mr.pages.dev` (el nombre de proyecto no se puede renombrar después de creado; se aceptó tal cual).
+
+**Resultado:** V1 publicada en Cloudflare Pages.
 
 ---
 
@@ -827,7 +834,7 @@ La V1 estará lista cuando:
 15. Los documentos se ordenen por modificación reciente.
 16. La experiencia sea cómoda en móvil.
 17. La aplicación funcione sin backend.
-18. La aplicación esté desplegada en Cloudflare Workers (Static Assets).
+18. La aplicación esté desplegada en Cloudflare Pages.
 19. La aplicación pueda instalarse en pantalla de inicio (manifest + iconos), sin que sea obligatorio.
 
 ---
@@ -975,23 +982,17 @@ Si este flujo funciona correctamente en móvil, la base técnica está validada.
 Decisiones de scaffold ya cerradas:
 
 ```text
-Repositorio: markdown-space
+Repositorio: markdown-space (github.com/alexjcm/markdown-space)
 Runtime: Node.js 24
 Framework: React
 Lenguaje: TypeScript
 Build tool: Vite
 Linter: Oxlint
-Hosting objetivo: Cloudflare Workers (Static Assets) — migrado desde el scaffold inicial en Cloudflare Pages
-Deploy inicial: omitido
+Hosting: Cloudflare Pages, conectado por Git (deploy automático en cada push)
+Deploy: V1 ya publicada en https://markdown-space-7mr.pages.dev
 ```
 
-Comandos disponibles identificados durante la creación:
-
-```bash
-cd markdown-space
-npm run dev
-```
 
 # Referencias:
 
-https://developers.cloudflare.com/workers/static-assets/
+https://developers.cloudflare.com/pages/

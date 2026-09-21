@@ -14,6 +14,9 @@ const chrome = EditorView.theme(
       caretColor: '#007acc',
       fontFamily: 'ui-monospace, Consolas, monospace',
       padding: '16px',
+      // No bottom bar in Editor mode: the content itself reserves space for
+      // iOS's home indicator, as part of the scrollable area.
+      paddingBottom: 'max(16px, env(safe-area-inset-bottom))',
     },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: '#007acc',

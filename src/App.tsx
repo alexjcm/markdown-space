@@ -5,8 +5,8 @@ import { useDocuments } from './hooks/useDocuments'
 import type { MarkdownDocument } from './types/document'
 import { downloadMarkdown } from './utils/downloadMarkdown'
 
-// La lista de documentos no necesita CodeMirror para nada: se carga aparte,
-// solo cuando el usuario efectivamente abre un documento.
+// The document list doesn't need CodeMirror at all: it's loaded separately,
+// only when the user actually opens a document.
 const DocumentEditor = lazy(() =>
   import('./components/DocumentEditor').then((module) => ({ default: module.DocumentEditor })),
 )
@@ -17,15 +17,15 @@ type View = { type: 'list' } | { type: 'editor'; documentId: string }
 
 function getInitialView(): View {
   const lastOpenedId = localStorage.getItem(LAST_OPENED_KEY)
-  // Se confía en localStorage de forma optimista: si el documento ya no existe
-  // (fue eliminado), DocumentEditor muestra el estado "no encontrado".
+  // Trusts localStorage optimistically: if the document no longer exists
+  // (it was deleted), DocumentEditor shows the "not found" state.
   return lastOpenedId ? { type: 'editor', documentId: lastOpenedId } : { type: 'list' }
 }
 
 function EditorLoadingFallback() {
   return (
     <div className="flex h-svh items-center justify-center">
-      <p className="text-sm text-text-secondary">Cargando editor…</p>
+      <p className="text-sm text-text-secondary">Loading editor…</p>
     </div>
   )
 }
@@ -48,8 +48,8 @@ function App() {
   }
 
   function closeEditor() {
-    // El editor ya garantiza el flush del autoguardado pendiente antes de llamar
-    // a este callback, así que acá siempre leemos el estado más reciente.
+    // The editor already guarantees the pending autosave is flushed before
+    // calling this callback, so we always read the latest state here.
     refresh()
     setView({ type: 'list' })
   }
@@ -69,15 +69,13 @@ function App() {
     }
 
     if (imported.length === 0) {
-      setImportNotice({ type: 'error', message: 'No se pudo importar ningún archivo. Probá de nuevo.' })
+      setImportNotice({ type: 'error', message: 'Could not import any file. Try again.' })
       return
     }
 
-    const verb = imported.length === 1 ? 'Se importó' : 'Se importaron'
-    const count = imported.length === 1 ? '1 documento' : `${imported.length} documentos`
-    const failedText =
-      failedCount > 0 ? ` (${failedCount} ${failedCount === 1 ? 'falló' : 'fallaron'})` : ''
-    setImportNotice({ type: 'success', message: `${verb} ${count}${failedText}.` })
+    const count = imported.length === 1 ? '1 document' : `${imported.length} documents`
+    const failedText = failedCount > 0 ? ` (${failedCount} failed)` : ''
+    setImportNotice({ type: 'success', message: `Imported ${count}${failedText}.` })
   }
 
   async function confirmDelete() {
@@ -137,9 +135,9 @@ function App() {
 
       {pendingDeleteDocument && (
         <ConfirmDialog
-          title="Eliminar documento"
-          description={`¿Eliminar "${pendingDeleteDocument.name}"? Esta acción no se puede deshacer.`}
-          confirmLabel="Eliminar"
+          title="Delete document"
+          description={`Delete "${pendingDeleteDocument.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
           onConfirm={confirmDelete}
           onCancel={() => setPendingDeleteId(null)}
         />
